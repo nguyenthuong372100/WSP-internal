@@ -191,9 +191,31 @@ class HrPayslip(models.Model):
             # })
 
     def action_approve_attendance(self):
-        pass
+        """
+        Approve tất cả các bản ghi attendance trong payslip được chọn.
+        """
+        _logger.info("Action Approve Attendance started for Payslip IDs: %s", self.ids)
+        for payslip in self:
+            for line in payslip.attendance_line_ids:
+                if not line.approved:
+                    line.approved = True  # Cập nhật trạng thái approved
+                    _logger.info("Approved Attendance ID: %s for Payslip ID: %s", line.attendance_id.id, payslip.id)
 
+                    # Tìm các payslip khác có chứa bản ghi attendance này
+                    other_payslip_lines = self.env['hr.payslip.attendance'].search([
+                        ('attendance_id', '=', line.attendance_id.id),
+                        ('payslip_id', '!=', payslip.id),
+                    ])
 
+                    # Vô hiệu hóa chỉnh sửa bản ghi này trong các payslip khác
+                    other_payslip_lines.write({'approved': True})
+
+            # Sau khi duyệt, tính toán lại tổng số giờ làm việc
+            payslip._compute_total_worked_hours()
+            _logger.info("Recomputed total worked hours for Payslip ID: %s", payslip.id)
+        _logger.info("Action Approve Attendance completed for Payslip IDs: %s", self.ids)
+        
+        
 class HrPayslipAttendance(models.Model):
     _name = "hr.payslip.attendance"
     _description = "Payslip Attendance"
