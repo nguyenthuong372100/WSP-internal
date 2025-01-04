@@ -1,6 +1,6 @@
 <odoo>
-    <record id="view_hr_payslip_custom" model="ir.ui.view">
-        <field name="name">hr.payslip.custom</field>
+    <record id="view_hr_payslip_form" model="ir.ui.view">
+        <field name="name">hr.payslip.form</field>
         <field name="model">hr.payslip</field>
         <field name="arch" type="xml">
             <form string="Payslip">
@@ -46,4 +46,18 @@
 
     <!-- Define the Payslip submenu under Reporting -->
     <menuitem id="menu_hr_reports" name="Payslip" parent="menu_hr_reporting_root" action="action_hr_reports" groups="hr.group_hr_manager"/>
+
+
+
+    <record id="action_approve_attendance" model="ir.actions.server">
+        <field name="name">Approve</field>
+        <field name="model_id" ref="employee_payroll_attendance.model_hr_payslip"/>
+        <field name="binding_model_id" ref="employee_payroll_attendance.model_hr_payslip"/>
+        <field name="binding_type">action</field>
+        <field name="sequence" eval="2"/>
+        <field name="state">code</field>
+        <field name="code">
+            records.action_approve_attendance()
+        </field>
+    </record>
 </odoo>
