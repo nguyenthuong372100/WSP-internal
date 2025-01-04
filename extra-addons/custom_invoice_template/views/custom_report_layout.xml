@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Kế thừa layout Striped -->
+    <template id="custom_report_invoice_template" inherit_id="web.external_layout_striped">
+        <!-- Đảm bảo logo hiển thị đúng kích thước -->
+        <xpath expr="//img[@class='float-start']" position="attributes">
+            <attribute name="style">width: 270px !important; max-height: none !important; max-width: none !important; height: 120px !important; margin-right: 60px !important;margin-bottom: 13px !important;margin-top: 5px !important;</attribute>
+            
+        </xpath>
+
+        <!-- Đặt chiều cao của company_address tương tự logo -->
+        <xpath expr="//div[@class='float-start company_address']" position="attributes">
+            <attribute name="style"> display: flex; flex-direction: column; justify-content: center; height: 100%;margin-bottom: 0px !important;margin-top: 15px !important; </attribute>
+        </xpath>
+        
+        <!-- Giảm margin và padding của thẻ <p> -->
+        <xpath expr="//div[@class='float-start company_address']//ul[@class='list-unstyled']" position="inside">
+            <style>
+                .float-start.company_address p {
+                    margin-bottom: 1px !important;
+                    margin-top: 1px !important;
+                }
+            </style>
+        </xpath>
+        
+        <!-- Giảm chiều cao của header -->
+        <xpath expr="//div[contains(@class, 'clearfix mb8')]" position="attributes">
+            <attribute name="style">
+                height: 138px !important;
+                position: relative; /* Đổi từ fixed sang relative */
+            </attribute>
+            
+        </xpath>
+        
+        <!-- Thay đổi màu của các đường link trong header -->
+        <xpath expr="//div[contains(@class, 'clearfix mb8')]" position="inside">
+            <style>
+                @media print {
+                    a {
+                        color: #495057 !important;
+                        text-decoration: none !important;
+                    }
+                    .clearfix.mb8, .clearfix.mb8 * {
+                        color: #495057 !important;
+                    }
+                }
+                a {
+                    color: #495057 !important;
+                }
+            </style>
+        </xpath>
+
+    </template>
+
+
+    <!-- Kế thừa Invoice Body -->
+    <template id="custom_account_report_invoice_body" inherit_id="account.report_invoice_document">
+        <!-- Thêm Bill to section -->
+        <xpath expr="//div[@class='row']" position="replace">
+            <div class="row" style="margin-top: 25px;margin-bottom: 25px;"> 
+                <!-- Khu vực bên trái -->
+                <div class="col-7"></div> 
+
+                <!-- Khu vực bên phải -->
+                <div class="col-5 text-start" name="bill_to_section" style=" margin-left: 0px;">
+                    <address class="mb-0" style="margin-left: 10px;">
+                        <strong>Bill to:</strong>
+                        <span t-field="o.partner_id.name" style="margin-left: 10px;"></span>
+                        <div t-field="o.partner_id"
+                             t-options="{&quot;widget&quot;: &quot;contact&quot;, &quot;fields&quot;: [&quot;address&quot;], &quot;no_marker&quot;: True}"
+                             style="padding-left: 60px !important;"></div>
+                    </address>
+                    <div t-if="o.partner_id.vat" style="padding-left: 50px;">
+                        <t t-if="o.company_id.account_fiscal_country_id.vat_label" t-esc="o.company_id.account_fiscal_country_id.vat_label"/>
+                        <t t-else="">Tax ID:</t>
+                        <span t-field="o.partner_id.vat"></span>
+                    </div>
+                </div>
+            </div>
+        </xpath>
+
+        <xpath expr="//div[@class='mt-5']" position="attributes">
+            <attribute name="style">margin-top: 1rem !important;</attribute>
+        </xpath>
+        
+    </template>
+
+
+</odoo>
