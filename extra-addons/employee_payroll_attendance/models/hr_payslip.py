@@ -217,86 +217,102 @@ class HrPayslip(models.Model):
         
         
 class HrPayslipAttendance(models.Model):
-    _name = "hr.payslip.attendance"
-    _description = "Payslip Attendance"
-
+    _name = 'hr.payslip.attendance'
+    _description = 'Payslip Attendance'
+    
     payslip_id = fields.Many2one(
-        "hr.payslip", string="Payslip", ondelete="cascade", required=True
+        'hr.payslip', string="Payslip", ondelete="cascade", required=True
     )
     attendance_id = fields.Many2one(
-        "hr.attendance", string="Attendance Record", required=True
+        'hr.attendance', string="Attendance Record", required=True
     )
-    report_id = fields.Many2one(
-        "hr.payslip.report", string="Payslip Report", ondelete="cascade"
-    )
-    check_in = fields.Datetime(
-        string="Check In", related="attendance_id.check_in", readonly=True
-    )
-    check_out = fields.Datetime(
-        string="Check Out", related="attendance_id.check_out", readonly=True
-    )
-    worked_hours = fields.Float(
-        string="Worked Hours", related="attendance_id.worked_hours", readonly=True
-    )
+    check_in = fields.Datetime(string="Check In", related="attendance_id.check_in", readonly=True)
+    check_out = fields.Datetime(string="Check Out", related="attendance_id.check_out", readonly=True)
+    worked_hours = fields.Float(string="Worked Hours", related="attendance_id.worked_hours", readonly=True)
     approved = fields.Boolean(string="Approved", default=False)
-    employee_id = fields.Many2one(
-        "hr.employee",
-        string="Employee",
-        related="attendance_id.employee_id",
-        store=True,
+    employee_id = fields.Many2one('hr.employee', string="Employee", related="attendance_id.employee_id", store=True)
+    last_approver_payslip_id = fields.Many2one(
+        'hr.payslip',
+        string="Last Approver Payslip",
+        help="The last payslip that approved this attendance record."
     )
 
     def toggle_approval(self):
         """
         Toggle trạng thái phê duyệt của bản ghi attendance trong payslip.
-        Khi bản ghi được phê duyệt ở một payslip, các payslip khác sẽ không thể chỉnh sửa bản ghi đó.
+        Khi bản ghi được phê duyệt ở một payslip, các payslip khác sẽ đồng bộ trạng thái,
+        và chỉ payslip cuối cùng approve có quyền unapprove.
         """
         for record in self:
-            # Đảo trạng thái `approved`
-            record.approved = not record.approved
-            _logger.info(
-                f"Payslip {record.payslip_id.id}: Attendance ID {record.attendance_id.id} approval toggled to {record.approved}"
-            )
-
-            # Tìm tất cả các payslip khác có sử dụng bản ghi attendance này
-            other_payslip_lines = self.env["hr.payslip.attendance"].search(
-                [
-                    ("attendance_id", "=", record.attendance_id.id),
-                    ("payslip_id", "!=", record.payslip_id.id),
-                ]
-            )
-
             if record.approved:
-                # Làm mờ và vô hiệu hóa các bản ghi attendance trong các payslip khác
-                other_payslip_lines.write({"approved": True})
-            else:
-                # Nếu bản ghi bị unapprove, các payslip khác có thể chỉnh sửa lại
-                other_payslip_lines.write({"approved": False})
+                # Kiểm tra nếu bản ghi không phải do payslip hiện tại phê duyệt
+                if record.last_approver_payslip_id != record.payslip_id:
+                    raise UserError((
+                        "Chỉ payslip %s mới có quyền bỏ phê duyệt bản ghi này."
+                    ) % record.last_approver_payslip_id.display_name)
 
-            # Tính toán lại tổng số giờ làm việc của payslip hiện tại
-            record.payslip_id._compute_total_worked_hours()
+                # Nếu bản ghi đã được phê duyệt, hủy phê duyệt
+                record.approved = False
+                _logger.info(f"Payslip {record.payslip_id.id}: Attendance ID {record.attendance_id.id} unapproved")
+                record.last_approver_payslip_id = False
+            else:
+                # Phê duyệt bản ghi
+                record.approved = True
+                record.last_approver_payslip_id = record.payslip_id
+                _logger.info(f"Payslip {record.payslip_id.id}: Attendance ID {record.attendance_id.id} approved")
+
+            # Làm mới bản ghi hiện tại
+            record.refresh()
+
+            # Đồng bộ trạng thái approved cho tất cả các payslip khác
+            other_payslip_lines = self.env['hr.payslip.attendance'].search([
+                ('attendance_id', '=', record.attendance_id.id),
+                ('id', '!=', record.id),
+            ])
+
+            for other_line in other_payslip_lines:
+                other_line.approved = record.approved
+                other_line.last_approver_payslip_id = record.last_approver_payslip_id
+
+            # Tính toán lại tổng số giờ làm việc cho tất cả các payslip liên quan
+            related_payslips = self.env['hr.payslip'].search([
+                ('attendance_line_ids.attendance_id', '=', record.attendance_id.id)
+            ])
+            for payslip in related_payslips:
+                payslip._compute_total_worked_hours()
+
 
     def action_view_details(self):
         """
         Mở popup hiển thị chi tiết timesheet liên quan đến attendance đã chọn.
         """
         self.ensure_one()
+
+        # Làm mới bản ghi hiện tại để đảm bảo trạng thái mới nhất
+        self.refresh()
+
         return {
-            "type": "ir.actions.act_window",
-            "name": "Attendance and Timesheet Details",
-            "view_mode": "form",
-            "res_model": "attendance.timesheet.details",
-            "target": "new",
-            "context": {
-                "default_employee_id": self.attendance_id.employee_id.id,
-                "default_date": self.attendance_id.check_in.date(),
-                "default_check_in": self.attendance_id.check_in,
-                "default_check_out": self.attendance_id.check_out,
-                "default_worked_hours": self.attendance_id.worked_hours,
+            'type': 'ir.actions.act_window',
+            'name': 'Attendance and Timesheet Details',
+            'view_mode': 'form',
+            'res_model': 'attendance.timesheet.details',
+            'target': 'new',
+            'context': {
+                'default_employee_id': self.attendance_id.employee_id.id,
+                'default_date': self.attendance_id.check_in.date(),
+                'default_check_in': self.attendance_id.check_in,
+                'default_check_out': self.attendance_id.check_out,
+                'default_worked_hours': self.attendance_id.worked_hours,
+                'default_approved': self.approved,  # Đảm bảo trạng thái approved được cập nhật
             },
         }
 
 
+
 class HrAttendance(models.Model):
-    _inherit = "hr.attendance"
-    pass
+    _inherit = 'hr.attendance'
+
+    def toggle_approval(self):
+        """Toggle approval status for attendance."""
+        for record in self:
+            record.approved = not record.approved

@@ -213,16 +213,32 @@ class AttendanceTimesheetDetails(models.TransientModel):
             record.approved = attendance.approved if attendance else False
 
     def action_toggle_approval(self):
-        """Toggle approval for the associated attendance record."""
+        """Toggle approval for the associated attendance record and sync the list view."""
         attendance = self.env['hr.attendance'].search([
             ('employee_id', '=', self.employee_id.id),
             ('check_in', '=', self.check_in),
             ('check_out', '=', self.check_out)
         ], limit=1)
+
         if attendance:
-            attendance.toggle_approval()
+            # Toggle approval status
+            attendance.approved = not attendance.approved
+
+            # Update current record's approved field
+            self.approved = attendance.approved
+
+            # Optionally, refresh the view (if this is part of a wizard or inline view)
+            return {
+                'type': 'ir.actions.act_window',
+                'res_model': self._name,
+                'res_id': self.id,
+                'view_mode': 'form',
+                'target': 'new',
+            }
+
         else:
             raise ValueError("No matching attendance record found.")
+
             
 
 class AttendanceTimesheetLine(models.TransientModel):
