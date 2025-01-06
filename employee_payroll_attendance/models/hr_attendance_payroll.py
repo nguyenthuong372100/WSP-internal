@@ -360,7 +360,7 @@ class HrPayslip(models.Model):
                 'meal_allowance': payslip.meal_allowance,
                 'kpi_bonus': payslip.kpi_bonus,
                 'other_bonus': payslip.other_bonus,
-                'attendanc_line_ids': attendance_data,
+                'attendance_ids': attendance_data,
                 'status': 'generated',
                 'converted_salary_vnd': payslip.converted_salary_vnd,
             })
