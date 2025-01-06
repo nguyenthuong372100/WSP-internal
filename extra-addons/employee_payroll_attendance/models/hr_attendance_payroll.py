@@ -466,25 +466,23 @@ class HrPayslip(models.Model):
             ]
 
             # Tạo báo cáo payslip
-            self.env["hr.payslip.report"].create(
-                {
-                    "employee_id": payslip.employee_id.id,
-                    "date_from": payslip.date_from,
-                    "date_to": payslip.date_to,
-                    "worked_hours": payslip.worked_hours,
-                    "total_working_days": payslip.total_working_days,
-                    "total_working_hours": payslip.total_working_hours,
-                    "approved_working_hours": payslip.approved_working_hours,
-                    "total_salary": payslip.total_salary,
-                    "insurance": payslip.insurance,
-                    "meal_allowance": payslip.meal_allowance,
-                    "kpi_bonus": payslip.kpi_bonus,
-                    "other_bonus": payslip.other_bonus,
-                    "attendance_ids": attendance_data,
-                    "status": "generated",
-                    "converted_salary_vnd": payslip.converted_salary_vnd,
-                }
-            )
+            self.env['hr.payslip.report'].create({
+                'employee_id': payslip.employee_id.id,
+                'date_from': payslip.date_from,
+                'date_to': payslip.date_to,
+                'worked_hours': payslip.worked_hours,
+                'total_working_days': payslip.total_working_days,
+                'total_working_hours': payslip.total_working_hours,
+                'approved_working_hours': payslip.approved_working_hours,
+                'total_salary': payslip.total_salary,
+                'insurance': payslip.insurance,
+                'meal_allowance': payslip.meal_allowance,
+                'kpi_bonus': payslip.kpi_bonus,
+                'other_bonus': payslip.other_bonus,
+                'attendance_ids': attendance_data,
+                'status': 'generated',
+                'converted_salary_vnd': payslip.converted_salary_vnd,
+            })
 
             _logger.info(
                 f"Payslip for {payslip.employee_id.name} has been generated and data moved to report."
