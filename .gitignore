@@ -1,4 +1,6 @@
 sync.ipynb
 docker-compose.yml
 remote_script.sh
+**/__pycache__/
 *.pyc
+
