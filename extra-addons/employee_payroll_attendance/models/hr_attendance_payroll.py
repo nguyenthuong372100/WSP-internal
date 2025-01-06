@@ -132,10 +132,10 @@ class HrPayslip(models.Model):
         else:
             self.wage = 0.0
 
-    @api.depends('attendance_ids.approved', 'attendance_ids.worked_hours')
+    @api.depends('attendance_line_ids.approved', 'attendance_line_ids.worked_hours')
     def _compute_worked_hours(self):
         for payslip in self:
-            total_hours = sum(attendance.worked_hours for attendance in payslip.attendance_ids if attendance.approved)
+            total_hours = sum(attendance.worked_hours for attendance in payslip.attendance_line_ids if attendance.approved)
             payslip.worked_hours = total_hours
             _logger.info(f"Total approved worked hours for {payslip.employee_id.name}: {total_hours}")
 
@@ -166,7 +166,7 @@ class HrPayslip(models.Model):
                         _logger.info(f"Approved hours outside probation period on {attendance_date}: {attendance.worked_hours}")
             else:
                 # If no probation period, all approved hours are treated as normal hours
-                normal_hours = sum(attendance.worked_hours for attendance in payslip.attendance_ids if attendance.approved)
+                normal_hours = sum(attendance.worked_hours for attendance in payslip.attendance_line_ids if attendance.approved)
                 _logger.info(f"No probation period defined. All approved hours treated as normal: {normal_hours} hours.")
 
             # Calculate probation salary
@@ -293,8 +293,8 @@ class HrPayslip(models.Model):
                 total_working_hours = working_days * 8
 
                 # Calculate approved working days and hours
-                approved_days = sum(1 for att in payslip.attendance_ids if att.approved)
-                approved_hours = sum(att.worked_hours for att in payslip.attendance_ids if att.approved)
+                approved_days = sum(1 for att in payslip.attendance_line_ids if att.approved)
+                approved_hours = sum(att.worked_hours for att in payslip.attendance_line_ids if att.approved)
 
                 # Set computed fields
                 payslip.total_working_days = working_days
@@ -360,7 +360,7 @@ class HrPayslip(models.Model):
                 'meal_allowance': payslip.meal_allowance,
                 'kpi_bonus': payslip.kpi_bonus,
                 'other_bonus': payslip.other_bonus,
-                'attendance_ids': attendance_data,
+                'attendanc_line_ids': attendance_data,
                 'status': 'generated',
                 'converted_salary_vnd': payslip.converted_salary_vnd,
             })
