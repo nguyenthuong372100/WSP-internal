@@ -20,7 +20,7 @@ class HrPayslip(models.Model):
         Tính tổng số giờ làm việc từ các bản ghi attendance đã được phê duyệt.
         """
         for payslip in self:
-            total_hours = sum(
+            total_hours = sum( 
                 line.worked_hours
                 for line in payslip.attendance_line_ids
                 if line.approved
