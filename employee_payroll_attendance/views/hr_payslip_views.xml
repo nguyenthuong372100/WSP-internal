@@ -6,7 +6,7 @@
         <field name="res_model">hr.payslip</field>
         <field name="view_mode">tree,form</field>
         <field name="context">{'group_by': ['date_to:month']}</field>
-        
+
     </record>
 
     <!-- Define the top-level Manage Payslip menu item under the HR root menu, restricted to administrators -->
@@ -14,7 +14,6 @@
 
     <!-- Define the Payslips submenu under Manage Payslip, restricted to administrators -->
     <menuitem id="menu_hr_payslip" name="Payslips" parent="menu_hr_manage_payslip_root" action="action_hr_payslip" groups="base.group_system"/>
-
 
     <!-- Define the form view for Payslip with status-based actions and new fields -->
     <record id="view_payslip_form" model="ir.ui.view">
@@ -58,11 +57,10 @@
                         <field name="probation_end_date"/>
                         <field name="probation_percentage"/>
                         <field name="probation_hours" readonly="1"/>
-                        <field name="probation_salary" readonly="1"/>                        
+                        <field name="probation_salary" readonly="1"/>
                     </group>
                     <group>
-                        <field name="currency_rate_fallback" string="Fallback USD to VND Rate"
-                               help="This rate is used for salary conversion if the live rate is unavailable."/>
+                        <field name="currency_rate_fallback" string="Fallback USD to VND Rate" help="This rate is used for salary conversion if the live rate is unavailable."/>
                     </group>
                     <group string="Allowances and Bonuses">
                         <field name="insurance"/>
@@ -76,8 +74,6 @@
                         <field name="approved_working_days" readonly="1"/>
                         <field name="approved_working_hours" readonly="1"/>
                     </group>
-
-                    
                     <group string="Attendance Records">
                         <field name="attendance_ids" readonly="1">
                             <tree string="Attendance Records">
@@ -118,8 +114,6 @@
         </field>
     </record>
 
-
-
     <!-- Define the tree view for Payslip Report with new fields for allowances, bonuses, and attendance records -->
     <record id="view_payslip_report_tree" model="ir.ui.view">
         <field name="name">hr.payslip.report.tree</field>
@@ -146,7 +140,6 @@
             </tree>
         </field>
     </record>
-    
 
     <!-- Define the form view for the Payslip Report, including attendance records and button toggling based on status -->
     <record id="view_payslip_report_form" model="ir.ui.view">

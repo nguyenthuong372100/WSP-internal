@@ -28,13 +28,13 @@
             </form>
         </field>
     </record>
-    
+
     <!-- Define the action for the Payslip submenu -->
     <record id="action_hr_reports" model="ir.actions.act_window">
         <field name="name">Payslip Reports</field>
         <field name="res_model">hr.payslip</field>
         <field name="view_mode">tree,form</field>
-    
+
         <field name="context">{
             "group_by": ["date_to:month","date_to:day"]
         }</field>
@@ -46,7 +46,6 @@
 
     <!-- Define the Payslip submenu under Reporting -->
     <menuitem id="menu_hr_reports" name="Payslip" parent="menu_hr_reporting_root" action="action_hr_reports" groups="hr.group_hr_manager"/>
-
 
 
     <record id="action_approve_attendance" model="ir.actions.server">
