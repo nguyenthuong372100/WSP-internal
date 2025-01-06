@@ -30,7 +30,7 @@ class HrPayslip(models.Model):
     @api.onchange("employee_id", "date_from", "date_to")
     def _onchange_attendance_records(self):
         if not self.employee_id or not self.date_from or not self.date_to:
-            return
+            return 
 
         # Lấy các bản ghi attendance phù hợp
         attendances = self.env["hr.attendance"].search(
