@@ -1,0 +1,48 @@
+
+<odoo>
+    <record id="view_hr_payslip_form_inherit_attendance" model="ir.ui.view">
+        <field name="name">hr.payslip.form.inherit.attendance</field>
+        <field name="model">hr.payslip</field>
+        <field name="inherit_id" ref="employee_payroll_attendance.view_payslip_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='attendance_ids']" position="replace">
+                <field name="attendance_line_ids" readonly="1">
+                    <tree string="Attendance Records" decoration-muted="approved">
+                        <field name="check_in"/>
+                        <field name="check_out"/>
+                        <field name="worked_hours"/>
+                        <field name="approved"/>
+                        <!-- Button Approve -->
+                    <!-- Button Approve -->
+                    <button name="toggle_approval" type="object" string="Approve"
+                            attrs="{'invisible': [('approved', '=', True)]}"
+                            class="btn-primary oe_inline"/>
+                    
+                    <!-- Button Unapprove -->
+                    <button name="toggle_approval" type="object" string="Unapprove"
+                            attrs="{'invisible': [('approved', '=', False)]}"
+                            class="btn-danger oe_inline"/>
+                    
+                    <!-- Button View Details -->
+                    <button name="action_view_details" type="object" string="View Details"
+                            attrs="{'readonly': [('approved', '=', True)]}"
+                            class="btn-secondary oe_inline"/>                  
+                    </tree>
+                </field>
+            </xpath>
+        </field>
+    </record>
+    
+    <record id="action_duplicate_payslip" model="ir.actions.server">
+        <field name="name">Create payslip for next month</field>
+        <field name="model_id" ref="employee_payroll_attendance.model_hr_payslip"/>
+        <field name="binding_model_id" ref="employee_payroll_attendance.model_hr_payslip"/>
+        <field name="binding_type">action</field>
+        <field name="sequence" eval="1"/>
+        <field name="state">code</field>
+        <field name="code">
+            records.action_duplicate_payslips()
+        </field>
+    </record>
+
+</odoo>
