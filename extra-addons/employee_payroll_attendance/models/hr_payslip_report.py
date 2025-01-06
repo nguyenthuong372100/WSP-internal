@@ -6,9 +6,8 @@ import json
 
 _logger = logging.getLogger(__name__)
 
-
 class HrAttendance(models.Model):
-    _inherit = "hr.attendance"
+    _inherit = 'hr.attendance'
 
     approved = fields.Boolean(string="Approved", default=False)
 
@@ -16,60 +15,51 @@ class HrAttendance(models.Model):
         """Toggle the approval status of the attendance and update related payslip if applicable."""
         for record in self:
             record.approved = not record.approved
-            _logger.info(
-                f"Toggled approval for {record.employee_id.name} on {record.check_in} to {record.approved}"
-            )
+            _logger.info(f"Toggled approval for {record.employee_id.name} on {record.check_in} to {record.approved}")
 
             # Find and update the related payslip
-            payslip = self.env["hr.payslip"].search(
-                [
-                    ("employee_id", "=", record.employee_id.id),
-                    ("date_from", "<=", record.check_in.date()),
-                    ("date_to", ">=", record.check_out.date()),
-                ],
-                limit=1,
-            )
+            payslip = self.env['hr.payslip'].search([
+                ('employee_id', '=', record.employee_id.id),
+                ('date_from', '<=', record.check_in.date()),
+                ('date_to', '>=', record.check_out.date())
+            ], limit=1)
 
             if payslip:
                 payslip._compute_worked_hours()
                 payslip._compute_total_salary()
                 payslip._compute_additional_fields()
-                _logger.info(
-                    f"Recomputed fields for payslip of {record.employee_id.name}"
-                )
+                _logger.info(f"Recomputed fields for payslip of {record.employee_id.name}")
 
     def approve_attendance(self):
         """Set the approved status to True."""
         for record in self:
             record.approved = True
-            _logger.info(
-                f"Approved attendance for {record.employee_id.name} on {record.check_in}"
-            )
+            _logger.info(f"Approved attendance for {record.employee_id.name} on {record.check_in}")
 
     def action_view_details(self):
         """Opens the popup view showing timesheets related to the selected attendance."""
         self.ensure_one()
         return {
-            "type": "ir.actions.act_window",
-            "name": "Attendance and Timesheet Details",
-            "view_mode": "form",
-            "res_model": "attendance.timesheet.details",
-            "target": "new",
-            "context": {
-                "default_employee_id": self.employee_id.id,
-                "default_date": self.check_in.date(),
-                "default_check_in": self.check_in,
-                "default_check_out": self.check_out,
-                "default_worked_hours": self.worked_hours,
+            'type': 'ir.actions.act_window',
+            'name': 'Attendance and Timesheet Details',
+            'view_mode': 'form',
+            'res_model': 'attendance.timesheet.details',
+            'target': 'new',
+            'context': {
+                'default_employee_id': self.employee_id.id,
+                'default_date': self.check_in.date(),
+                'default_check_in': self.check_in,
+                'default_check_out': self.check_out,
+                'default_worked_hours': self.worked_hours,
             },
         }
-
-
+        
+        
 class HrPayslipReport(models.Model):
-    _name = "hr.payslip.report"
-    _description = "Employee Payslip Report"
+    _name = 'hr.payslip.report'
+    _description = 'Employee Payslip Report'
 
-    employee_id = fields.Many2one("hr.employee", string="Employee", required=True)
+    employee_id = fields.Many2one('hr.employee', string="Employee", required=True)
     date_from = fields.Date(string="Start Date", required=True)
     date_to = fields.Date(string="End Date", required=True)
     worked_hours = fields.Float(string="Worked Hours")
@@ -79,9 +69,8 @@ class HrPayslipReport(models.Model):
     total_salary = fields.Float(string="Total Salary")
     converted_salary_vnd = fields.Float(string="Salary in VND", store=True)
     monthly_wage_vnd = fields.Float(string="Monthly Wage (VND)")
-    hourly_rate_vnd = fields.Float(
-        string="Hourly Rate (VND)", help="Hourly rate in VND."
-    )
+    hourly_rate_vnd = fields.Float(string="Hourly Rate (VND)", help="Hourly rate in VND.")
+
 
     # New fields for additional allowances and bonuses
     insurance = fields.Float(string="Insurance", readonly=True)
@@ -91,57 +80,44 @@ class HrPayslipReport(models.Model):
 
     # New One2many field for related attendance records
     attendance_ids = fields.One2many(
-        "hr.payslip.report.attendance",
-        "payslip_report_id",
-        string="Attendance Records",
-        readonly=True,
+        'hr.payslip.report.attendance', 'payslip_report_id', string="Attendance Records", readonly=True
     )
     attendance_line_ids = fields.One2many(
-        "hr.payslip.attendance",
-        "payslip_id",
+        'hr.payslip.attendance',
+        'payslip_id',
         string="Attendance Records",
         readonly=True,
-    )
+    )   
 
-    status = fields.Selection(
-        [
-            ("draft", "Draft"),
-            ("generated", "Payslip Generated"),
-            ("employee_confirm", "Employee Confirm"),
-            ("transfer_payment", "Transfer Payment"),
-            ("done", "Done"),
-        ],
-        default="draft",
-        string="Status",
-    )
+    status = fields.Selection([
+        ('draft', 'Draft'),
+        ('generated', 'Payslip Generated'),
+        ('employee_confirm', 'Employee Confirm'),
+        ('transfer_payment', 'Transfer Payment'),
+        ('done', 'Done')
+    ], default='draft', string="Status")
     probation_start_date = fields.Date(string="Probation Start Date")
     probation_end_date = fields.Date(string="Probation End Date")
     probation_percentage = fields.Float(string="Probation Percentage", default=85.0)
     probation_hours = fields.Float(string="Approved Hours (Probation)", store=True)
-    probation_salary = fields.Float(string="Salary (Probation)", store=True)
+    probation_salary = fields.Float(string="Salary (Probation)",  store=True)
 
     def action_employee_confirm(self):
         # Find the related hr.payslip record based on the employee and date range
-        related_payslip = self.env["hr.payslip"].search(
-            [
-                ("employee_id", "=", self.employee_id.id),
-                ("date_from", "=", self.date_from),
-                ("date_to", "=", self.date_to),
-            ],
-            limit=1,
-        )
-
+        related_payslip = self.env['hr.payslip'].search([
+            ('employee_id', '=', self.employee_id.id),
+            ('date_from', '=', self.date_from),
+            ('date_to', '=', self.date_to),
+        ], limit=1)
+        
         if related_payslip:
             related_payslip.action_employee_confirm()
 
-
 class HrPayslipReportAttendance(models.Model):
-    _name = "hr.payslip.report.attendance"
-    _description = "Payslip Report Attendance"
+    _name = 'hr.payslip.report.attendance'
+    _description = 'Payslip Report Attendance'
 
-    payslip_report_id = fields.Many2one(
-        "hr.payslip.report", string="Payslip Report", ondelete="cascade"
-    )
+    payslip_report_id = fields.Many2one('hr.payslip.report', string="Payslip Report", ondelete="cascade")
     date = fields.Date(string="Date")
     check_in = fields.Datetime(string="Check In")
     check_out = fields.Datetime(string="Check Out")

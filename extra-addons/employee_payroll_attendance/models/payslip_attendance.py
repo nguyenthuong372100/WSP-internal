@@ -5,27 +5,23 @@ _logger = logging.getLogger(__name__)
 
 
 class PayslipAttendance(models.Model):
-    _name = "payslip.attendance"
-    _description = "Payslip Attendance"
+    _name = 'payslip.attendance'
+    _description = 'Payslip Attendance'
 
-    payslip_id = fields.Many2one(
-        "hr.payslip", string="Payslip", required=True, ondelete="cascade"
-    )
-    employee_id = fields.Many2one("hr.employee", string="Employee", required=True)
-    attendance_date = fields.Date(string="Attendance Date", required=True)
-    check_in = fields.Datetime(string="Check In")
-    check_out = fields.Datetime(string="Check Out")
-    worked_hours = fields.Float(
-        string="Worked Hours", compute="_compute_worked_hours", store=True
-    )
-    approval_status = fields.Selection(
-        [("yes", "Approved"), ("no", "Not Approved")],
-        string="Approval Status",
-        required=True,
-        default="no",
-    )
+    payslip_id = fields.Many2one('hr.payslip', string='Payslip', required=True, ondelete='cascade')
+    employee_id = fields.Many2one('hr.employee', string='Employee', required=True)
+    attendance_date = fields.Date(string='Attendance Date', required=True)
+    check_in = fields.Datetime(string='Check In')
+    check_out = fields.Datetime(string='Check Out')
+    worked_hours = fields.Float(string='Worked Hours', compute='_compute_worked_hours', store=True)
+    approval_status = fields.Selection([
+        ('yes', 'Approved'),
+        ('no', 'Not Approved')
+    ], string='Approval Status', required=True, default='no')
 
-    @api.depends("check_in", "check_out")
+
+
+    @api.depends('check_in', 'check_out')
     def _compute_worked_hours(self):
         for record in self:
             if record.check_in and record.check_out:
@@ -46,26 +42,22 @@ class PayslipAttendance(models.Model):
         """
         records = []
         for record in attendance_data:
-            new_record = self.create(
-                {
-                    "payslip_id": payslip_id,
-                    "employee_id": employee_id,
-                    "attendance_date": record["date"],
-                    "check_in": record.get("check_in"),
-                    "check_out": record.get("check_out"),
-                    "approval_status": record.get("approval_status", "no"),
-                }
-            )
+            new_record = self.create({
+                'payslip_id': payslip_id,
+                'employee_id': employee_id,
+                'attendance_date': record['date'],
+                'check_in': record.get('check_in'),
+                'check_out': record.get('check_out'),
+                'approval_status': record.get('approval_status', 'no'),
+            })
             records.append(new_record.id)
 
         # Log all records in the payslip.attendance table
         all_records = self.search([])
         for rec in all_records:
-            _logger.info(
-                f"Payslip Attendance Record: Payslip ID: {rec.payslip_id.id}, Employee ID: {rec.employee_id.id}, "
-                f"Attendance Date: {rec.attendance_date}, Check In: {rec.check_in}, Check Out: {rec.check_out}, "
-                f"Worked Hours: {rec.worked_hours}, Approval Status: {rec.approval_status}"
-            )
+            _logger.info(f"Payslip Attendance Record: Payslip ID: {rec.payslip_id.id}, Employee ID: {rec.employee_id.id}, "
+                         f"Attendance Date: {rec.attendance_date}, Check In: {rec.check_in}, Check Out: {rec.check_out}, "
+                         f"Worked Hours: {rec.worked_hours}, Approval Status: {rec.approval_status}")
 
         return records
 
@@ -77,7 +69,10 @@ class PayslipAttendance(models.Model):
         :param payslip_id: ID of the payslip.
         :return: Recordset of attendance records.
         """
-        return self.search([("payslip_id", "=", payslip_id)])
+        return self.search([('payslip_id', '=', payslip_id)])
+
+
+
 
 
 # # Example Usage:
