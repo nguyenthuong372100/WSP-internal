@@ -3,25 +3,25 @@ import logging
 
 _logger = logging.getLogger(__name__)
 
+
 class HrPayslip(models.Model):
-    _inherit = 'hr.payslip'
+    _inherit = "hr.payslip"
 
     attendance_line_ids = fields.One2many(
-        'hr.payslip.attendance',
-        'payslip_id',
-        string="Attendance Records",
-        copy=False
+        "hr.payslip.attendance", "payslip_id", string="Attendance Records", copy=False
     )
     worked_hours = fields.Float(string="Total Worked Hours", readonly=True)
 
     def _compute_total_worked_hours(self):
         for payslip in self:
             total_hours = sum(
-                line.worked_hours for line in payslip.attendance_line_ids if line.approved
+                line.worked_hours
+                for line in payslip.attendance_line_ids
+                if line.approved
             )
             payslip.worked_hours = total_hours
 
-    @api.onchange('employee_id', 'date_from', 'date_to')
+    @api.onchange("employee_id", "date_from", "date_to")
     def _onchange_attendance_records(self):
         """
         Lấy các bản ghi attendance phù hợp và tạo bản ghi trong bảng trung gian.
@@ -31,22 +31,30 @@ class HrPayslip(models.Model):
             self.attendance_line_ids = [(5, 0, 0)]
 
             # Tìm các bản ghi attendance phù hợp
-            attendances = self.env['hr.attendance'].search([
-                ('employee_id', '=', self.employee_id.id),
-                ('check_in', '>=', self.date_from),
-                ('check_out', '<=', self.date_to),
-            ])
+            attendances = self.env["hr.attendance"].search(
+                [
+                    ("employee_id", "=", self.employee_id.id),
+                    ("check_in", ">=", self.date_from),
+                    ("check_out", "<=", self.date_to),
+                ]
+            )
 
             # Tạo bản ghi trong bảng trung gian
             lines = []
             for attendance in attendances:
-                lines.append((0, 0, {
-                    'attendance_id': attendance.id,
-                    'check_in': attendance.check_in,
-                    'check_out': attendance.check_out,
-                    'worked_hours': attendance.worked_hours,
-                    'approved': False,  # Mặc định chưa phê duyệt
-                }))
+                lines.append(
+                    (
+                        0,
+                        0,
+                        {
+                            "attendance_id": attendance.id,
+                            "check_in": attendance.check_in,
+                            "check_out": attendance.check_out,
+                            "worked_hours": attendance.worked_hours,
+                            "approved": False,  # Mặc định chưa phê duyệt
+                        },
+                    )
+                )
             self.attendance_line_ids = lines
 
     def write(self, vals):
@@ -55,7 +63,7 @@ class HrPayslip(models.Model):
         """
         result = super(HrPayslip, self).write(vals)
         for payslip in self:
-            if 'employee_id' in vals or 'date_from' in vals or 'date_to' in vals:
+            if "employee_id" in vals or "date_from" in vals or "date_to" in vals:
                 payslip._onchange_attendance_records()
         return result
 
@@ -70,14 +78,22 @@ class HrPayslip(models.Model):
 
 
 class HrPayslipAttendance(models.Model):
-    _name = 'hr.payslip.attendance'
-    _description = 'Payslip Attendance'
+    _name = "hr.payslip.attendance"
+    _description = "Payslip Attendance"
 
-    payslip_id = fields.Many2one('hr.payslip', string="Payslip", ondelete="cascade")
-    attendance_id = fields.Many2one('hr.attendance', string="Attendance Record", required=True)
-    check_in = fields.Datetime(string="Check In", related="attendance_id.check_in", readonly=True)
-    check_out = fields.Datetime(string="Check Out", related="attendance_id.check_out", readonly=True)
-    worked_hours = fields.Float(string="Worked Hours", related="attendance_id.worked_hours", readonly=True)
+    payslip_id = fields.Many2one("hr.payslip", string="Payslip", ondelete="cascade")
+    attendance_id = fields.Many2one(
+        "hr.attendance", string="Attendance Record", required=True
+    )
+    check_in = fields.Datetime(
+        string="Check In", related="attendance_id.check_in", readonly=True
+    )
+    check_out = fields.Datetime(
+        string="Check Out", related="attendance_id.check_out", readonly=True
+    )
+    worked_hours = fields.Float(
+        string="Worked Hours", related="attendance_id.worked_hours", readonly=True
+    )
     approved = fields.Boolean(string="Approved", default=False)
 
     def toggle_approval(self):
@@ -86,7 +102,9 @@ class HrPayslipAttendance(models.Model):
         """
         for record in self:
             record.approved = not record.approved
-            _logger.info(f"Payslip {record.payslip_id.id}: Attendance ID {record.attendance_id.id} approval toggled to {record.approved}")
+            _logger.info(
+                f"Payslip {record.payslip_id.id}: Attendance ID {record.attendance_id.id} approval toggled to {record.approved}"
+            )
             # Tính toán lại tổng số giờ làm việc ngay sau khi thay đổi trạng thái
             record.payslip_id._compute_total_worked_hours()
 
@@ -94,21 +112,21 @@ class HrPayslipAttendance(models.Model):
         """Opens the popup view showing timesheets related to the selected attendance."""
         self.ensure_one()
         return {
-            'type': 'ir.actions.act_window',
-            'name': 'Attendance and Timesheet Details',
-            'view_mode': 'form',
-            'res_model': 'attendance.timesheet.details',
-            'target': 'new',
-            'context': {
-                'default_employee_id': self.attendance_id.employee_id.id,
-                'default_date': self.attendance_id.check_in.date(),
-                'default_check_in': self.attendance_id.check_in,
-                'default_check_out': self.attendance_id.check_out,
-                'default_worked_hours': self.attendance_id.worked_hours,
+            "type": "ir.actions.act_window",
+            "name": "Attendance and Timesheet Details",
+            "view_mode": "form",
+            "res_model": "attendance.timesheet.details",
+            "target": "new",
+            "context": {
+                "default_employee_id": self.attendance_id.employee_id.id,
+                "default_date": self.attendance_id.check_in.date(),
+                "default_check_in": self.attendance_id.check_in,
+                "default_check_out": self.attendance_id.check_out,
+                "default_worked_hours": self.attendance_id.worked_hours,
             },
         }
 
 
 class HrAttendance(models.Model):
-    _inherit = 'hr.attendance'
+    _inherit = "hr.attendance"
     pass
