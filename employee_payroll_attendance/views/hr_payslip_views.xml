@@ -73,7 +73,7 @@
                         <field name="total_working_hours" readonly="1"/>
                         <field name="approved_working_days" readonly="1"/>
                         <field name="approved_working_hours" readonly="1"/>
-                    </group>
+                    </group>                    
                     <group string="Attendance Records">
                         <field name="attendance_ids" readonly="0">
                             <tree string="Attendance Records" editable="bottom">
