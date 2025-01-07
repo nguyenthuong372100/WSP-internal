@@ -281,20 +281,12 @@ class HrPayslipAttendance(models.Model):
                 # Nếu bản ghi đã được phê duyệt, hủy phê duyệt
                 record.approved = False
                 record.approved_by = False  # Xóa thông tin người phê duyệt
-                _logger.debug(f"Unapproved record: {record.id}")
-                _logger.info(
-                    f"Payslip {record.payslip_id.id}: Attendance ID {record.attendance_id.id} unapproved"
-                )
                 record.last_approver_payslip_id = False
             else:
                 # Phê duyệt bản ghi
                 record.approved = True
                 record.last_approver_payslip_id = record.payslip_id
                 record.approved_by = self.env.user.id  # Ghi nhận người phê duyệt
-                _logger.debug(f"Approved record: {record.id} by {self.env.user.name}")
-                _logger.info(
-                    f"Payslip {record.payslip_id.id}: Attendance ID {record.attendance_id.id} approved by {self.env.user.name}"
-                )
 
             # Làm mới bản ghi hiện tại
             record.refresh()
