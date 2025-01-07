@@ -18,7 +18,7 @@ class HrPayslip(models.Model):
 
     def _compute_total_worked_hours(self):
         """
-        Tính tổng số giờ làm việc từ các bản ghi attendance đã được phê duyệt.
+        Calculate total worked hours from approved attendance records.
         """
         for payslip in self:
             total_hours = sum(
@@ -31,9 +31,9 @@ class HrPayslip(models.Model):
     @api.onchange("employee_id", "date_from", "date_to")
     def _onchange_attendance_records(self):
         if not self.employee_id or not self.date_from or not self.date_to:
-            return  # Không làm gì nếu thiếu dữ liệu
+            return  # Do nothing if any of the fields are missing
 
-        # Lấy các bản ghi attendance phù hợp
+        # Get attendance records that match the employee and date range
         attendances = self.env["hr.attendance"].search(
             [
                 ("employee_id", "=", self.employee_id.id),
@@ -42,17 +42,17 @@ class HrPayslip(models.Model):
             ]
         )
 
-        # Tìm các ID của attendance đã có
+        # Find the IDs of attendance records that already exist
         existing_attendance_ids = set(
             self.attendance_line_ids.mapped("attendance_id.id")
         )
 
-        # Loại bỏ các bản ghi không còn nằm trong khoảng ngày
+        # Remove any records that are no longer in the date range
         self.attendance_line_ids = self.attendance_line_ids.filtered(
             lambda line: line.attendance_id.id in attendances.mapped("id")
         )
 
-        # Thêm các bản ghi mới
+        # Add new records
         for attendance in attendances:
             if attendance.id not in existing_attendance_ids:
                 self.attendance_line_ids = [
@@ -71,13 +71,13 @@ class HrPayslip(models.Model):
 
     def _sync_attendance_records(self):
         """
-        Đồng bộ danh sách attendance với payslip mà không tạo trùng lặp.
+        Sync attendance records with payslip without creating duplicates.
         """
         for payslip in self:
             if not payslip.employee_id or not payslip.date_from or not payslip.date_to:
-                continue  # Bỏ qua nếu thiếu dữ liệu
+                continue  # Skip if any of the fields are missing
 
-            # Lấy danh sách attendance phù hợp
+            # Get attendance records that match the employee and date range
             attendances = self.env["hr.attendance"].search(
                 [
                     ("employee_id", "=", payslip.employee_id.id),
@@ -86,17 +86,17 @@ class HrPayslip(models.Model):
                 ]
             )
 
-            # Loại bỏ các bản ghi không còn phù hợp
+            # Remove any records that are no longer in the date range
             payslip.attendance_line_ids.filtered(
                 lambda line: line.attendance_id.id not in attendances.mapped("id")
             ).unlink()
 
-            # Tìm các ID của attendance đã có
+            # Find the IDs of attendance records that already exist
             existing_attendance_ids = set(
                 payslip.attendance_line_ids.mapped("attendance_id.id")
             )
 
-            # Thêm các dòng mới (chỉ những dòng chưa có)
+            # Add new records (only those that don't already exist)
             for attendance in attendances:
                 if attendance.id not in existing_attendance_ids:
                     payslip.attendance_line_ids = [
@@ -137,12 +137,15 @@ class HrPayslip(models.Model):
         return record
 
     def action_duplicate_payslips(self):
+        """
+        Duplicate payslips with new start and end dates one month after the current payslip.
+        """
         for payslip in self:
-            # Tính toán ngày mới
+            # Calculate new start and end dates
             new_start_date = payslip.date_from + relativedelta(months=1)
             new_end_date = payslip.date_to + relativedelta(months=1)
 
-            # Kiểm tra nếu đã tồn tại payslip với employee và khoảng ngày trùng
+            # Check if a payslip already exists for the employee and date range
             existing_payslip = self.env["hr.payslip"].search(
                 [
                     ("employee_id", "=", payslip.employee_id.id),
@@ -155,12 +158,12 @@ class HrPayslip(models.Model):
             if existing_payslip:
                 raise UserError(
                     (
-                        f"Payslip đã tồn tại cho nhân viên {payslip.employee_id.name} "
-                        f"từ ngày {new_start_date} đến ngày {new_end_date}. Không thể duplicate!"
+                        f"Payslip already exists for employee {payslip.employee_id.name} "
+                        f"from {new_start_date} to {new_end_date}. Unable to duplicate!"
                     )
                 )
 
-            # Sao chép payslip hiện tại với start_date và end_date mới
+            # Copy current payslip with new start and end dates
             new_payslip = payslip.copy(
                 {
                     "date_from": new_start_date,
@@ -168,11 +171,11 @@ class HrPayslip(models.Model):
                 }
             )
 
-            # Xóa các bản ghi attendance cũ liên quan đến payslip mới (nếu có)
+            # Remove existing attendance records (if any) for the new payslip
             if new_payslip.attendance_line_ids:
                 new_payslip.attendance_line_ids.unlink()
 
-            # Lọc lại các bản ghi attendance report theo khoảng ngày mới
+            # Filter attendance records according to new date range
             attendances = self.env["hr.attendance"].search(
                 [
                     ("employee_id", "=", payslip.employee_id.id),
@@ -181,7 +184,7 @@ class HrPayslip(models.Model):
                 ]
             )
 
-            # Tạo bản ghi attendance liên kết với payslip mới
+            # Create new attendance records linked to the new payslip
             new_payslip.attendance_line_ids = [
                 (
                     0,
@@ -197,27 +200,27 @@ class HrPayslip(models.Model):
                 for attendance in attendances
             ]
 
-            # Bỏ trạng thái readonly cho các trường date_from và date_to
+            # Remove readonly status for date_from and date_to fields
             # new_payslip.write({
             #     'state': 'draft'
             # })
 
     def action_approve_attendance(self):
         """
-        Approve tất cả các bản ghi attendance trong payslip được chọn.
+        Approve all attendance records in the selected payslip.
         """
         _logger.info("Action Approve Attendance started for Payslip IDs: %s", self.ids)
         for payslip in self:
             for line in payslip.attendance_line_ids:
                 if not line.approved:
-                    line.approved = True  # Cập nhật trạng thái approved
+                    line.approved = True  # Update approved status
                     _logger.info(
                         "Approved Attendance ID: %s for Payslip ID: %s",
                         line.attendance_id.id,
                         payslip.id,
                     )
 
-                    # Tìm các payslip khác có chứa bản ghi attendance này
+                    # Find other payslip lines that contain the same attendance
                     other_payslip_lines = self.env["hr.payslip.attendance"].search(
                         [
                             ("attendance_id", "=", line.attendance_id.id),
@@ -225,10 +228,10 @@ class HrPayslip(models.Model):
                         ]
                     )
 
-                    # Vô hiệu hóa chỉnh sửa bản ghi này trong các payslip khác
+                    # Disable editing for this attendance record in other payslips
                     other_payslip_lines.write({"approved": True})
 
-            # Sau khi duyệt, tính toán lại tổng số giờ làm việc
+            # Recompute total worked hours after approval
             payslip._compute_total_worked_hours()
             _logger.info("Recomputed total worked hours for Payslip ID: %s", payslip.id)
         _logger.info(
@@ -273,33 +276,33 @@ class HrPayslipAttendance(models.Model):
 
     def toggle_approval(self):
         """
-        Toggle trạng thái phê duyệt của bản ghi attendance trong payslip.
-        Khi bản ghi được phê duyệt ở một payslip, các payslip khác sẽ đồng bộ trạng thái,
-        và chỉ payslip cuối cùng approve có quyền unapprove.
+        Toggle the approval status of the attendance record in payslip.
+        When the record is approved in one payslip, other payslips will sync the status,
+        and only the last payslip that approved has the right to unapprove.
         """
         for record in self:
             if record.approved:
-                # Kiểm tra nếu bản ghi không phải do payslip hiện tại phê duyệt
+                # Check if the record is not approved by the current payslip
                 if record.last_approver_payslip_id != record.payslip_id:
                     raise UserError(
                         "Chỉ payslip hr.payslip,%s mới có quyền bỏ phê duyệt bản ghi này."
                         % (record.last_approver_payslip_id.id if record.last_approver_payslip_id else "không xác định")
                     )
 
-                # Nếu bản ghi đã được phê duyệt, hủy phê duyệt
+                # If the record is already approved, unapprove it
                 record.approved = False
-                record.approved_by = False  # Xóa thông tin người phê duyệt
+                record.approved_by = False  # Reset the approved_by field
                 record.last_approver_payslip_id = False
             else:
-                # Phê duyệt bản ghi
+                # Approve the record
                 record.approved = True
                 record.last_approver_payslip_id = record.payslip_id
-                record.approved_by = self.env.user.id  # Ghi nhận người phê duyệt
+                record.approved_by = self.env.user.id  # Record the approver
 
-            # Làm mới bản ghi hiện tại
+            # Refresh the current record
             record.refresh()
 
-            # Đồng bộ trạng thái approved và approved_by cho tất cả các payslip khác
+            # Sync the approved and approved_by fields for all other payslip lines
             other_payslip_lines = self.env["hr.payslip.attendance"].search(
                 [("attendance_id", "=", record.attendance_id.id), ("id", "!=", record.id)]
             )
@@ -309,7 +312,7 @@ class HrPayslipAttendance(models.Model):
                 other_line.last_approver_payslip_id = record.last_approver_payslip_id
                 other_line.approved_by = record.approved_by
 
-            # Tính toán lại tổng số giờ làm việc cho tất cả các payslip liên quan
+            # Recompute the total worked hours for all related payslips
             related_payslips = self.env["hr.payslip"].search(
                 [("attendance_line_ids.attendance_id", "=", record.attendance_id.id)]
             )
@@ -318,11 +321,11 @@ class HrPayslipAttendance(models.Model):
 
     def action_view_details(self):
         """
-        Mở popup hiển thị chi tiết timesheet liên quan đến attendance đã chọn.
+        Open a popup to show the timesheet details related to the selected attendance.
         """
         self.ensure_one()
 
-        # Làm mới bản ghi hiện tại để đảm bảo trạng thái mới nhất
+        # Refresh the current record to ensure the latest status
         self.refresh()
 
         return {
@@ -337,7 +340,7 @@ class HrPayslipAttendance(models.Model):
                 "default_check_in": self.attendance_id.check_in,
                 "default_check_out": self.attendance_id.check_out,
                 "default_worked_hours": self.attendance_id.worked_hours,
-                "default_approved": self.approved,  # Đảm bảo trạng thái approved được cập nhật
+                "default_approved": self.approved,  # Ensure the approved status is updated
             },
         }
 
