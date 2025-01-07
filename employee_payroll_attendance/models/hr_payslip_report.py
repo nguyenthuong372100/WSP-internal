@@ -11,6 +11,7 @@ class HrAttendance(models.Model):
     _inherit = "hr.attendance"
 
     approved = fields.Boolean(string="Approved", default=False)
+  
 
     def toggle_approval(self):
         """Toggle the approval status of the attendance and update related payslip if applicable."""
@@ -63,7 +64,6 @@ class HrAttendance(models.Model):
                 "default_worked_hours": self.worked_hours,
             },
         }
-
 
 class HrPayslipReport(models.Model):
     _name = "hr.payslip.report"
@@ -214,25 +214,25 @@ class AttendanceTimesheetDetails(models.TransientModel):
                 html_content = "<table class='o_list_view table table-condensed'>"
                 html_content += """
                 <thead>
-                    <tr>
-                        <th>Date</th>
-                        <th>Project</th>
-                        <th>Task</th>
-                        <th>Description</th>
-                        <th>Hours Spent</th>
-                    </tr>
-                </thead>
-                <tbody>
+<tr>
+<th>Date</th>
+<th>Project</th>
+<th>Task</th>
+<th>Description</th>
+<th>Hours Spent</th>
+</tr>
+</thead>
+<tbody>
                 """
                 for timesheet in timesheets:
                     html_content += f"""
                     <tr>
-                        <td>{timesheet.date}</td>
-                        <td>{timesheet.project_id.name or ''}</td>
-                        <td>{timesheet.task_id.name or ''}</td>
-                        <td>{timesheet.name or ''}</td>
-                        <td>{timesheet.unit_amount}</td>
-                    </tr>
+<td>{timesheet.date}</td>
+<td>{timesheet.project_id.name or ''}</td>
+<td>{timesheet.task_id.name or ''}</td>
+<td>{timesheet.name or ''}</td>
+<td>{timesheet.unit_amount}</td>
+</tr>
                     """
                 html_content += "</tbody></table>"
             else:
