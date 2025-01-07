@@ -48,13 +48,14 @@
                         <field name="employee_id"/>
                         <field name="date_from"/>
                         <field name="date_to"/>
+                        <field name="include_saturdays" widget="boolean_toggle" string="Include Saturdays"/>
                     </group>
+
                     <group>
                         <field name="wage" placeholder="Monthly Wage (USD)"/>
                         <field name="hourly_rate" placeholder="Hourly Rate (USD)"/>
                         <field name="hourly_rate_vnd" placeholder="Hourly Rate (VND)"/>
                         <field name="monthly_wage_vnd" placeholder="Monthly Rate (VND)" />
-
                     </group>
                     <group string="Salary">
                         <field name="worked_hours" readonly="1"/>
@@ -90,13 +91,9 @@
                                 <field name="check_out"/>
                                 <field name="worked_hours"/>
                                 <field name="approved"/>
-                                <!-- Nút Approve -->
                                 <button name="toggle_approval" type="object" string="Approve" attrs="{'invisible': [('approved', '=', True)]}" class="btn-primary oe_inline"/>
-                                <!-- Nút Unapprove -->
                                 <button name="toggle_approval" type="object" string="Unapprove" attrs="{'invisible': [('approved', '=', False)]}" class="btn-danger oe_inline"/>
-                                <!-- Nút View Details -->
                                 <button name="action_view_details" type="object" string="View Details" class="btn-secondary oe_inline"/>
-                                <!-- Approve by -->
                                 <field name="approved_by" string="Approved by" readonly="1" attrs="{'invisible': [('approved', '=', False)]}"/>
                             </tree>
                         </field>
