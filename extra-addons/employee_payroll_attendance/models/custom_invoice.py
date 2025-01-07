@@ -5,10 +5,7 @@ class AccountMove(models.Model):
     _inherit = "account.move"
 
     discount = fields.Monetary(
-        string="Discount",
-        currency_field="currency_id",
-        help="Enter the discount amount to apply on this invoice.",
-        default=0.0,
+        string="Discount", currency_field="currency_id", default=0.0
     )
     tax_rate = fields.Float(string="Tax Rate", compute="_compute_tax_rate", store=True)
     bank_fee = fields.Monetary(
