@@ -238,7 +238,7 @@ class HrPayslipAttendance(models.Model):
         "hr.attendance", string="Attendance Record", required=True
     )
     check_in = fields.Datetime(
-        string="Check In", related="attendance_id.check_in", readonly=True
+        string="Check In", related="attendance_id.check_in", readonly=True, store=True
     )
     check_out = fields.Datetime(
         string="Check Out", related="attendance_id.check_out", readonly=True
