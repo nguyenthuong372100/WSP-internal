@@ -380,27 +380,27 @@ class HrPayslip(models.Model):
                 _logger.info(
                     f"Starting computation for payslip {payslip.id} (Employee: {payslip.employee_id.name})"
                 )
-                # Biến đếm số ngày T2-T6
+                # Counter for weekdays (Monday-Friday)
                 weekdays_count = 0
-                # Biến đếm số ngày Thứ 7
+                # Counter for Saturday
                 saturday_count = 0
 
-                # Lặp qua tất cả các ngày trong khoảng date_from -> date_to
+                # Iterate through all days in the range date_from -> date_to
                 date_diff = (payslip.date_to - payslip.date_from).days + 1
                 for n in range(date_diff):
                     current_date = payslip.date_from + timedelta(days=n)
                     weekday_index = current_date.weekday()
-                    # Thứ 2 -> Thứ 6 tương ứng weekday_index = 0..4
+                    # Monday to Friday corresponds to weekday_index = 0..4
                     if 0 <= weekday_index < 5:
                         weekdays_count += 1
-                    # Thứ 7 là weekday_index = 5
+                    # Saturday is weekday_index = 5
                     elif weekday_index == 5:
                         saturday_count += 1
 
-                # Tính giờ T2 -> T6 (8 tiếng/ngày)
+                # Calculate hours for weekdays (8 hours/day)
                 weekday_hours = weekdays_count * 8
 
-                # Nếu checkbox include_saturdays = True, mới tính 2 ngày Thứ 7
+                # If checkbox include_saturdays = True, calculate up to 2 Saturdays (6.5 hours/day)
                 if payslip.include_saturdays:
                     saturdays_to_count = min(saturday_count, 2)
                     saturday_hours = saturdays_to_count * 6.5
@@ -408,12 +408,12 @@ class HrPayslip(models.Model):
                     saturdays_to_count = 0
                     saturday_hours = 0
 
-                # Tổng ngày làm việc
+                # Total working days
                 working_days = weekdays_count + saturdays_to_count
-                # Tổng giờ làm
+                # Total working hours
                 total_working_hours = weekday_hours + saturday_hours
 
-                # Tính Approved Days/Hours (không thay đổi so với logic cũ)
+                # Calculate Approved Days/Hours (unchanged from previous logic)
                 approved_days = len(
                     {
                         att.attendance_id.check_in.date()
@@ -427,7 +427,7 @@ class HrPayslip(models.Model):
                     if att.approved
                 )
 
-                # Gán kết quả vào field
+                # Assign results to fields
                 payslip.total_working_days = working_days
                 payslip.total_working_hours = total_working_hours
                 payslip.approved_working_days = approved_days
@@ -439,7 +439,7 @@ class HrPayslip(models.Model):
                     f"Approved Hours = {approved_hours}"
                 )
             else:
-                # Nếu thiếu date_from / date_to
+                # If date_from or date_to is missing
                 payslip.total_working_days = 0
                 payslip.total_working_hours = 0.0
                 payslip.approved_working_days = 0
@@ -470,12 +470,12 @@ class HrPayslip(models.Model):
             payslip.status = "generated"
             payslip._update_report_status()
 
-            # Lấy dữ liệu từ bảng hr.payslip.attendance theo payslip_id
+            # Retrieve data from hr.payslip.attendance table based on payslip_id
             attendance_records = self.env["hr.payslip.attendance"].search(
                 [("payslip_id", "=", payslip.id)]
             )
 
-            # Chuyển dữ liệu attendance thành định dạng cần thiết
+            # Convert attendance data to the required format
             attendance_data = [
                 (
                     0,
@@ -490,7 +490,7 @@ class HrPayslip(models.Model):
                 for attendance in attendance_records
             ]
 
-            # Tạo báo cáo payslip
+            # Create payslip report
             self.env["hr.payslip.report"].create(
                 {
                     "employee_id": payslip.employee_id.id,
@@ -549,7 +549,7 @@ class HrPayslip(models.Model):
 
     def action_done(self):
         """
-        Chuyển trạng thái từ Transfer Payment sang Done.
+        Set the status to 'done' from 'transfer_payment'.
         """
         for payslip in self:
             if payslip.status == 'transfer_payment':
@@ -559,7 +559,7 @@ class HrPayslip(models.Model):
 
     def action_revert_generated(self):
         """
-        Chuyển trạng thái từ Employee Confirm về Generated.
+        Revert the status from 'employee_confirm' to 'generated'.
         """
         for payslip in self:
             if payslip.status == 'employee_confirm':
@@ -593,7 +593,7 @@ class HrPayslip(models.Model):
 
     def action_revert_transfer_payment(self):
         """
-        Chuyển trạng thái từ Transfer Payment về Employee Confirm.
+        Revert the status from 'transfer_payment' to 'employee_confirm'.
         """
         for payslip in self:
             if payslip.status == 'transfer_payment':
