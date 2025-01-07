@@ -12,6 +12,9 @@ class HrAttendance(models.Model):
 
     approved = fields.Boolean(string="Approved", default=False)
 
+    approved_by = fields.Many2one("res.users", string="Approved By", readonly=True)
+
+
     def toggle_approval(self):
         """Toggle the approval status of the attendance and update related payslip if applicable."""
         for record in self:
