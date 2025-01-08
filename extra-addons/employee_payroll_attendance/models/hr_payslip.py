@@ -109,6 +109,7 @@ class HrPayslip(models.Model):
                                 "check_out": attendance.check_out,
                                 "worked_hours": attendance.worked_hours,
                                 "approved": False,
+                                "last_approver_payslip_id": payslip.id,
                             },
                         )
                     ]
@@ -118,6 +119,7 @@ class HrPayslip(models.Model):
         if any(key in vals for key in ["employee_id", "date_from", "date_to"]):
             self._sync_attendance_records()
         return res
+
     @api.model
     def create(self, vals):
         record = super(HrPayslip, self).create(vals)
@@ -126,7 +128,10 @@ class HrPayslip(models.Model):
         # Đồng bộ trạng thái phê duyệt từ các payslip khác
         for line in record.attendance_line_ids:
             existing_lines = self.env["hr.payslip.attendance"].search(
-                [("attendance_id", "=", line.attendance_id.id), ("approved", "=", True)],
+                [
+                    ("attendance_id", "=", line.attendance_id.id),
+                    ("approved", "=", True),
+                ],
                 limit=1,
             )
             if existing_lines:
@@ -282,37 +287,39 @@ class HrPayslipAttendance(models.Model):
         """
         for record in self:
             if record.approved:
-                # Check if the record is not approved by the current payslip
+                if not record.last_approver_payslip_id:
+                    raise UserError(
+                        "Unable to unapprove because this record is not yet associated with any payslip."
+                    )
                 if record.last_approver_payslip_id != record.payslip_id:
                     raise UserError(
-                        "Chỉ payslip hr.payslip,%s mới có quyền bỏ phê duyệt bản ghi này."
-                        % (record.last_approver_payslip_id.id if record.last_approver_payslip_id else "không xác định")
+                        "Only payslip hr.payslip,%s has the authority to unapprove this record."
+                        % (
+                            record.last_approver_payslip_id.id
+                            if record.last_approver_payslip_id
+                            else "Unknown"
+                        )
                     )
 
-                # If the record is already approved, unapprove it
                 record.approved = False
-                record.approved_by = False  # Reset the approved_by field
+                record.approved_by = False
                 record.last_approver_payslip_id = False
             else:
-                # Approve the record
                 record.approved = True
                 record.last_approver_payslip_id = record.payslip_id
-                record.approved_by = self.env.user.id  # Record the approver
+                record.approved_by = self.env.user.id
 
-            # Refresh the current record
             record.refresh()
 
-            # Sync the approved and approved_by fields for all other payslip lines
             other_payslip_lines = self.env["hr.payslip.attendance"].search(
-                [("attendance_id", "=", record.attendance_id.id), ("id", "!=", record.id)]
+                [("attendance_id", "=", record.attendance_id.id)]
             )
 
             for other_line in other_payslip_lines:
                 other_line.approved = record.approved
-                other_line.last_approver_payslip_id = record.last_approver_payslip_id
+                other_line.last_approver_payslip_id = record.payslip_id
                 other_line.approved_by = record.approved_by
 
-            # Recompute the total worked hours for all related payslips
             related_payslips = self.env["hr.payslip"].search(
                 [("attendance_line_ids.attendance_id", "=", record.attendance_id.id)]
             )

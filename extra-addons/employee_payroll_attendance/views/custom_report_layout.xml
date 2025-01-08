@@ -152,8 +152,8 @@
         <field name="model">account.move</field>
         <field name="inherit_id" ref="account.view_move_form"/>
         <field name="arch" type="xml">
-            <!-- Thêm dưới Untaxed Amount -->
-            <xpath expr="//label[contains(@class, 'o_form_label o_tax_total_label')]" position="after">
+            <!-- Thêm Discount và Bank Fee -->
+            <xpath expr="//label[@class='o_form_label o_tax_total_label']" position="before">
                 <div>
                     <label for="discount" string="Discount"/>
                     <field name="discount" widget="monetary" options="{'currency_field': 'currency_id'}"/>
