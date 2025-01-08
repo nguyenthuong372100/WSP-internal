@@ -118,11 +118,22 @@ class HrPayslip(models.Model):
         if any(key in vals for key in ["employee_id", "date_from", "date_to"]):
             self._sync_attendance_records()
         return res
-
     @api.model
     def create(self, vals):
         record = super(HrPayslip, self).create(vals)
         record._sync_attendance_records()
+
+        # Đồng bộ trạng thái phê duyệt từ các payslip khác
+        for line in record.attendance_line_ids:
+            existing_lines = self.env["hr.payslip.attendance"].search(
+                [("attendance_id", "=", line.attendance_id.id), ("approved", "=", True)],
+                limit=1,
+            )
+            if existing_lines:
+                line.approved = True
+                line.last_approver_payslip_id = existing_lines.payslip_id
+                line.approved_by = existing_lines.approved_by
+
         return record
 
     def action_duplicate_payslips(self):
@@ -270,15 +281,12 @@ class HrPayslipAttendance(models.Model):
         and only the last payslip that approved has the right to unapprove.
         """
         for record in self:
-            _logger.debug(
-                f"Processing record: {record.id}, approved: {record.approved}"
-            )
             if record.approved:
                 # Check if the record is not approved by the current payslip
                 if record.last_approver_payslip_id != record.payslip_id:
                     raise UserError(
-                        ("Only payslip %s has the right to unapprove this record.")
-                        % record.last_approver_payslip_id.display_name
+                        "Chỉ payslip hr.payslip,%s mới có quyền bỏ phê duyệt bản ghi này."
+                        % (record.last_approver_payslip_id.id if record.last_approver_payslip_id else "không xác định")
                     )
 
                 # If the record is already approved, unapprove it
@@ -296,10 +304,7 @@ class HrPayslipAttendance(models.Model):
 
             # Sync the approved and approved_by fields for all other payslip lines
             other_payslip_lines = self.env["hr.payslip.attendance"].search(
-                [
-                    ("attendance_id", "=", record.attendance_id.id),
-                    ("id", "!=", record.id),
-                ]
+                [("attendance_id", "=", record.attendance_id.id), ("id", "!=", record.id)]
             )
 
             for other_line in other_payslip_lines:
