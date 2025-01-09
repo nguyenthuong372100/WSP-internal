@@ -287,6 +287,9 @@ class HrPayslipAttendance(models.Model):
         """
         for record in self:
             # Check unapproval rules
+            if record.approved and not record.last_approver_payslip_id:
+                record.last_approver_payslip_id = record.payslip_id
+    
             if record.approved:
                 if not record.last_approver_payslip_id:
                     raise UserError(
