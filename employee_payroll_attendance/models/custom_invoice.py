@@ -1,13 +1,16 @@
 from odoo import models, fields, api
+import logging
+
+_logger = logging.getLogger(__name__)
 
 
 class AccountMove(models.Model):
+
     _inherit = "account.move"
 
     discount = fields.Monetary(
         string="Discount", currency_field="currency_id", default=0.0
     )
-    tax_rate = fields.Float(string="Tax Rate", compute="_compute_tax_rate", store=True)
     bank_fee = fields.Monetary(
         string="Bank Fee", currency_field="currency_id", default=0.0
     )
@@ -28,9 +31,23 @@ class AccountMove(models.Model):
     @api.depends("invoice_line_ids.price_subtotal")
     def _compute_subtotal(self):
         for move in self:
-            move.subtotal = sum(line.price_subtotal for line in move.invoice_line_ids)
+            try:
+                move.subtotal = sum(
+                    line.price_subtotal or 0.0 for line in move.invoice_line_ids
+                )
+            except Exception as e:
+                _logger.error(
+                    f"[AccountMove ID {move.id}] Error computing subtotal: {e}"
+                )
+                move.subtotal = 0.0
 
     @api.depends("subtotal")
     def _compute_tax_rate(self):
         for move in self:
-            move.tax_rate = move.subtotal * 0.15  # 15% Tax Rate
+            try:
+                move.tax_rate = (move.subtotal or 0.0) * 0.15
+            except Exception as e:
+                _logger.error(
+                    f"[AccountMove ID {move.id}] Error computing tax rate: {e}"
+                )
+                move.tax_rate = 0.0
