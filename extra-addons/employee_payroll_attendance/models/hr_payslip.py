@@ -109,7 +109,7 @@ class HrPayslip(models.Model):
                                 "check_out": attendance.check_out,
                                 "worked_hours": attendance.worked_hours,
                                 "approved": False,
-                                "last_approver_payslip_id": payslip.id,  
+                                "last_approver_payslip_id": payslip.id,
                             },
                         )
                     ]
@@ -119,6 +119,7 @@ class HrPayslip(models.Model):
         if any(key in vals for key in ["employee_id", "date_from", "date_to"]):
             self._sync_attendance_records()
         return res
+
     @api.model
     def create(self, vals):
         record = super(HrPayslip, self).create(vals)
@@ -127,7 +128,10 @@ class HrPayslip(models.Model):
         # Đồng bộ trạng thái phê duyệt từ các payslip khác
         for line in record.attendance_line_ids:
             existing_lines = self.env["hr.payslip.attendance"].search(
-                [("attendance_id", "=", line.attendance_id.id), ("approved", "=", True)],
+                [
+                    ("attendance_id", "=", line.attendance_id.id),
+                    ("approved", "=", True),
+                ],
                 limit=1,
             )
             if existing_lines:
@@ -291,7 +295,11 @@ class HrPayslipAttendance(models.Model):
                 if record.last_approver_payslip_id != record.payslip_id:
                     raise UserError(
                         "Only payslip hr.payslip,%s has the authority to unapprove this record."
-                        % (record.last_approver_payslip_id.id if record.last_approver_payslip_id else "Unknown")
+                        % (
+                            record.last_approver_payslip_id.id
+                            if record.last_approver_payslip_id
+                            else "Unknown"
+                        )
                     )
 
                 # Unapprove the record

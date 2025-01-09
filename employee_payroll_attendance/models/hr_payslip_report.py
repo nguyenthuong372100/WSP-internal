@@ -11,9 +11,9 @@ class HrAttendance(models.Model):
     _inherit = "hr.attendance"
 
     approved = fields.Boolean(string="Approved", default=False)
-
     approved_by = fields.Many2one("res.users", string="Approved By", readonly=True)
 
+    approved_by = fields.Many2one("res.users", string="Approved By", readonly=True)
 
     def toggle_approval(self):
         """Toggle the approval status of the attendance and update related payslip if applicable."""
@@ -217,25 +217,25 @@ class AttendanceTimesheetDetails(models.TransientModel):
                 html_content = "<table class='o_list_view table table-condensed'>"
                 html_content += """
                 <thead>
-<tr>
-<th>Date</th>
-<th>Project</th>
-<th>Task</th>
-<th>Description</th>
-<th>Hours Spent</th>
-</tr>
-</thead>
-<tbody>
+                    <tr>
+                    <th>Date</th>
+                    <th>Project</th>
+                    <th>Task</th>
+                    <th>Description</th>
+                    <th>Hours Spent</th>
+                    </tr>
+                    </thead>
+                    <tbody>
                 """
                 for timesheet in timesheets:
                     html_content += f"""
                     <tr>
-<td>{timesheet.date}</td>
-<td>{timesheet.project_id.name or ''}</td>
-<td>{timesheet.task_id.name or ''}</td>
-<td>{timesheet.name or ''}</td>
-<td>{timesheet.unit_amount}</td>
-</tr>
+                    <td>{timesheet.date}</td>
+                    <td>{timesheet.project_id.name or ''}</td>
+                    <td>{timesheet.task_id.name or ''}</td>
+                    <td>{timesheet.name or ''}</td>
+                    <td>{timesheet.unit_amount}</td>
+                    </tr>
                     """
                 html_content += "</tbody></table>"
             else:
