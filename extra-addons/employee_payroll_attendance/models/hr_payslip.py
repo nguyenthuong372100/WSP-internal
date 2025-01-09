@@ -109,7 +109,7 @@ class HrPayslip(models.Model):
                                 "check_out": attendance.check_out,
                                 "worked_hours": attendance.worked_hours,
                                 "approved": False,
-                                "last_approver_payslip_id": payslip.id,
+                                "last_approver_payslip_id": payslip.id,  
                             },
                         )
                     ]
@@ -119,7 +119,6 @@ class HrPayslip(models.Model):
         if any(key in vals for key in ["employee_id", "date_from", "date_to"]):
             self._sync_attendance_records()
         return res
-
     @api.model
     def create(self, vals):
         record = super(HrPayslip, self).create(vals)
@@ -128,10 +127,7 @@ class HrPayslip(models.Model):
         # Đồng bộ trạng thái phê duyệt từ các payslip khác
         for line in record.attendance_line_ids:
             existing_lines = self.env["hr.payslip.attendance"].search(
-                [
-                    ("attendance_id", "=", line.attendance_id.id),
-                    ("approved", "=", True),
-                ],
+                [("attendance_id", "=", line.attendance_id.id), ("approved", "=", True)],
                 limit=1,
             )
             if existing_lines:
@@ -286,6 +282,7 @@ class HrPayslipAttendance(models.Model):
         and only the last payslip that approved has the right to unapprove.
         """
         for record in self:
+            # Check unapproval rules
             if record.approved:
                 if not record.last_approver_payslip_id:
                     raise UserError(
@@ -294,37 +291,46 @@ class HrPayslipAttendance(models.Model):
                 if record.last_approver_payslip_id != record.payslip_id:
                     raise UserError(
                         "Only payslip hr.payslip,%s has the authority to unapprove this record."
-                        % (
-                            record.last_approver_payslip_id.id
-                            if record.last_approver_payslip_id
-                            else "Unknown"
-                        )
+                        % (record.last_approver_payslip_id.id if record.last_approver_payslip_id else "Unknown")
                     )
 
+                # Unapprove the record
                 record.approved = False
                 record.approved_by = False
                 record.last_approver_payslip_id = False
             else:
+                # Approve the record
                 record.approved = True
                 record.last_approver_payslip_id = record.payslip_id
                 record.approved_by = self.env.user.id
 
-            record.refresh()
+            # Synchronize approval status across related payslip lines
+            self._sync_approval_status(record)
 
-            other_payslip_lines = self.env["hr.payslip.attendance"].search(
-                [("attendance_id", "=", record.attendance_id.id)]
-            )
+            # Recompute related payslips' total worked hours
+            self._recompute_related_payslips(record)
 
-            for other_line in other_payslip_lines:
-                other_line.approved = record.approved
-                other_line.last_approver_payslip_id = record.payslip_id
-                other_line.approved_by = record.approved_by
+    def _sync_approval_status(self, record):
+        """
+        Synchronize the approval status across all related payslip lines for the attendance record.
+        """
+        related_lines = self.env["hr.payslip.attendance"].search(
+            [("attendance_id", "=", record.attendance_id.id)]
+        )
+        for line in related_lines:
+            line.approved = record.approved
+            line.last_approver_payslip_id = record.payslip_id
+            line.approved_by = record.approved_by
 
-            related_payslips = self.env["hr.payslip"].search(
-                [("attendance_line_ids.attendance_id", "=", record.attendance_id.id)]
-            )
-            for payslip in related_payslips:
-                payslip._compute_total_worked_hours()
+    def _recompute_related_payslips(self, record):
+        """
+        Recompute total worked hours for all payslips related to the attendance record.
+        """
+        related_payslips = self.env["hr.payslip"].search(
+            [("attendance_line_ids.attendance_id", "=", record.attendance_id.id)]
+        )
+        for payslip in related_payslips:
+            payslip._compute_total_worked_hours()
 
     def action_view_details(self):
         """
