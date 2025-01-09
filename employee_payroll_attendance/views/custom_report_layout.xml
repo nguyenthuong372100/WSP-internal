@@ -147,4 +147,24 @@
         </xpath>
     </template>
 
+    <record id="view_invoice_form_inherit" model="ir.ui.view">
+        <field name="name">account.move.form.inherit</field>
+        <field name="model">account.move</field>
+        <field name="inherit_id" ref="account.view_move_form"/>
+        <field name="arch" type="xml">
+            <!-- Thêm Discount và Bank Fee -->
+            <xpath expr="//label[@class='o_form_label o_tax_total_label']" position="before">
+                <div>
+                    <label for="discount" string="Discount"/>
+                    <field name="discount" widget="monetary" options="{'currency_field': 'currency_id'}"/>
+                </div>
+                <div>
+                    <label for="bank_fee" string="Bank Fee"/>
+                    <field name="bank_fee" widget="monetary" options="{'currency_field': 'currency_id'}"/>
+                </div>
+            </xpath>
+        </field>
+    </record>
+
+
 </odoo>
