@@ -85,7 +85,7 @@ class HrPayslip(models.Model):
     total_working_hours = fields.Float(
         string="Total Working Hours", compute="_compute_additional_fields"
     )
-    approved_working_days = fields.Integer(
+    approved_working_days = fields.Float(
         string="Approved Working Days", compute="_compute_additional_fields"
     )
     approved_working_hours = fields.Float(
@@ -296,7 +296,7 @@ class HrPayslip(models.Model):
         if self.wage and self.currency_rate_fallback:
             self.monthly_wage_vnd = self.wage * self.currency_rate_fallback
             _logger.info(
-                f"Converted Monthly Wage from USD to VND: {self.wage} USD × {self.currency_rate_fallback} = {self.monthly_wage_vnd} VND"
+                f"Converted Monthly Wage from USD to VND: {self.wage} USD x {self.currency_rate_fallback} = {self.monthly_wage_vnd} VND"
             )
         else:
             self.monthly_wage_vnd = 0.0
@@ -414,18 +414,20 @@ class HrPayslip(models.Model):
                 total_working_hours = weekday_hours + saturday_hours
 
                 # Calculate Approved Days/Hours (unchanged from previous logic)
-                approved_days = len(
-                    {
-                        att.attendance_id.check_in.date()
-                        for att in payslip.attendance_line_ids
-                        if att.approved
-                    }
-                )
+                # approved_days = len(
+                #     {
+                #         att.attendance_id.check_in.date()
+                #         for att in payslip.attendance_line_ids
+                #         if att.approved
+                #     }
+                # )
                 approved_hours = sum(
                     att.worked_hours
                     for att in payslip.attendance_line_ids
                     if att.approved
                 )
+
+                approved_days = approved_hours / 8
 
                 # Assign results to fields
                 payslip.total_working_days = working_days
