@@ -27,6 +27,12 @@ class AccountMove(models.Model):
         store=True,
         currency_field="currency_id",
     )
+    amount_residual = fields.Float(
+        string="Amount Residual",
+        compute="_compute_amount_residual",
+        store=True,
+        currency_field="currency_id",
+    )
 
     @api.depends("invoice_line_ids.price_subtotal")
     def _compute_subtotal(self):
@@ -51,3 +57,10 @@ class AccountMove(models.Model):
                     f"[AccountMove ID {move.id}] Error computing tax rate: {e}"
                 )
                 move.tax_rate = 0.0
+
+    @api.depends("discount", "bank_fee")
+    def _compute_amount_residual(self):
+        for move in self:
+            move.amount_residual = (
+                move.amount_untaxed + move.tax_rate - move.discount + move.bank_fee
+            )
