@@ -12,13 +12,13 @@
                 <field name="approved"/>
                 <button name="toggle_approval" type="object" string="Approve" attrs="{'invisible': [('approved', '=', True)]}" class="btn-primary oe_inline"/>
 
-                        <!-- Button Unapprove -->
+                <!-- Button Unapprove -->
                 <button name="toggle_approval" type="object" string="Unapprove" attrs="{'invisible': [('approved', '=', False)]}" class="btn-danger oe_inline"/>
 
-                        <!-- Button View Details -->
+                <!-- Button View Details -->
                 <button name="action_view_details" type="object" string="View Details" attrs="{'readonly': [('approved', '=', True)]}" class="btn-secondary oe_inline"/>
 
-                        <!-- Approve by  -->
+                <!-- Approve by  -->
                 <field name="approved_by" string="Approved by" readonly="1" attrs="{'invisible': [('approved', '=', False)]}"/>
             </tree>
         </field>
@@ -34,12 +34,7 @@
     </record>
 
     <!-- Menu for Payslip Attendance Records -->
-    <menuitem id="menu_hr_payslip_attendance" 
-              name="Payslip Attendance Records" 
-              parent="hr.menu_hr_root" 
-              action="action_hr_payslip_attendance" 
-              sequence="20" 
-              groups="hr.group_hr_manager"/>
+    <menuitem id="menu_hr_payslip_attendance" name="Payslip Attendance Records" parent="hr.menu_hr_root" action="action_hr_payslip_attendance" sequence="20" groups="hr.group_hr_manager,hr.group_hr_user"/>
 
     <record id="action_approve_attendance" model="ir.actions.server">
         <field name="name">Approve</field>
