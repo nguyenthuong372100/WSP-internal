@@ -72,10 +72,11 @@ class HrPayslip(models.Model):
     def _sync_attendance_records(self):
         """
         Sync attendance records with payslip without creating duplicates.
+        Avoid syncing 'approved' status from other payslips.
         """
         for payslip in self:
             if not payslip.employee_id or not payslip.date_from or not payslip.date_to:
-                continue  # Skip if any of the fields are missing
+                continue  # Skip if any required fields are missing
 
             # Get attendance records that match the employee and date range
             attendances = self.env["hr.attendance"].search(
@@ -91,12 +92,10 @@ class HrPayslip(models.Model):
                 lambda line: line.attendance_id.id not in attendances.mapped("id")
             ).unlink()
 
-            # Find the IDs of attendance records that already exist
+            # Add new attendance records without syncing 'approved' status
             existing_attendance_ids = set(
                 payslip.attendance_line_ids.mapped("attendance_id.id")
             )
-
-            # Add new records (only those that don't already exist)
             for attendance in attendances:
                 if attendance.id not in existing_attendance_ids:
                     payslip.attendance_line_ids = [
@@ -108,8 +107,8 @@ class HrPayslip(models.Model):
                                 "check_in": attendance.check_in,
                                 "check_out": attendance.check_out,
                                 "worked_hours": attendance.worked_hours,
-                                "approved": False,
-                                "last_approver_payslip_id": payslip.id,
+                                "approved": False,  # Do not sync approved status
+                                "last_approver_payslip_id": False,  # Reset last approver
                             },
                         )
                     ]
@@ -125,19 +124,12 @@ class HrPayslip(models.Model):
         record = super(HrPayslip, self).create(vals)
         record._sync_attendance_records()
 
-        # Đồng bộ trạng thái phê duyệt từ các payslip khác
+        # Don't sync state browser from other payslips
         for line in record.attendance_line_ids:
-            existing_lines = self.env["hr.payslip.attendance"].search(
-                [
-                    ("attendance_id", "=", line.attendance_id.id),
-                    ("approved", "=", True),
-                ],
-                limit=1,
-            )
-            if existing_lines:
-                line.approved = True
-                line.last_approver_payslip_id = existing_lines.payslip_id
-                line.approved_by = existing_lines.approved_by
+            # By default, not approved when creating a new one
+            line.approved = False
+            line.last_approver_payslip_id = False
+            line.approved_by = False
 
         return record
 
@@ -281,20 +273,32 @@ class HrPayslipAttendance(models.Model):
 
     def toggle_approval(self):
         """
-        Toggle the approval status of the attendance record in payslip.
-        When the record is approved in one payslip, other payslips will sync the status,
-        and only the last payslip that approved has the right to unapprove.
+        Toggle the approval status of the attendance record in the payslip.
+        When the record is approved in one payslip, it cannot be approved or unapproved in any other payslip.
         """
         for record in self:
-            # Check unapproval rules
-            if record.approved and not record.last_approver_payslip_id:
-                record.last_approver_payslip_id = record.payslip_id
-    
-            if record.approved:
-                if not record.last_approver_payslip_id:
+            # Check if the attendance has already been approved in another payslip
+            if not record.approved:
+                existing_approved_lines = self.env["hr.payslip.attendance"].search(
+                    [
+                        ("attendance_id", "=", record.attendance_id.id),
+                        ("approved", "=", True),
+                        ("payslip_id", "!=", record.payslip_id.id),
+                    ],
+                    limit=1,
+                )
+                if existing_approved_lines:
                     raise UserError(
-                        "Unable to unapprove because this record is not yet associated with any payslip."
+                        "This attendance record has already been approved in payslip hr.payslip,%s and cannot be approved again."
+                        % existing_approved_lines.payslip_id.id
                     )
+
+            if record.approved:
+                # If the record is already approved but missing `last_approver_payslip_id`, assign the current payslip
+                if not record.last_approver_payslip_id:
+                    record.last_approver_payslip_id = record.payslip_id
+
+                # Check if the record does not belong to the current payslip
                 if record.last_approver_payslip_id != record.payslip_id:
                     raise UserError(
                         "Only payslip hr.payslip,%s has the authority to unapprove this record."
@@ -315,27 +319,31 @@ class HrPayslipAttendance(models.Model):
                 record.last_approver_payslip_id = record.payslip_id
                 record.approved_by = self.env.user.id
 
-            # Synchronize approval status across related payslip lines
-            self._sync_approval_status(record)
+            # Synchronize the status within the current payslip
+            self._sync_approval_status_within_payslip(record)
 
-            # Recompute related payslips' total worked hours
+            # Recompute the total worked hours for related payslips
             self._recompute_related_payslips(record)
 
-    def _sync_approval_status(self, record):
+    def _sync_approval_status_within_payslip(self, record):
         """
-        Synchronize the approval status across all related payslip lines for the attendance record.
+        Synchronize the approval status across all related payslip lines
+        for the attendance record within the same payslip.
         """
         related_lines = self.env["hr.payslip.attendance"].search(
-            [("attendance_id", "=", record.attendance_id.id)]
+            [
+                ("attendance_id", "=", record.attendance_id.id),
+                ("payslip_id", "=", record.payslip_id.id),  # Only sync within the same payslip
+            ]
         )
         for line in related_lines:
             line.approved = record.approved
-            line.last_approver_payslip_id = record.payslip_id
+            line.last_approver_payslip_id = record.last_approver_payslip_id
             line.approved_by = record.approved_by
 
     def _recompute_related_payslips(self, record):
         """
-        Recompute total worked hours for all payslips related to the attendance record.
+        Recompute the total worked hours for all payslips related to the attendance record.
         """
         related_payslips = self.env["hr.payslip"].search(
             [("attendance_line_ids.attendance_id", "=", record.attendance_id.id)]
