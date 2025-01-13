@@ -186,12 +186,36 @@ class HrPayslip(models.Model):
                 f"Total approved worked hours for {payslip.employee_id.name}: {total_hours}"
             )
 
+    # @api.depends(
+    #     "worked_hours",
+    #     "attendance_line_ids",
+    #     "probation_start_date",
+    #     "probation_end_date",
+    #     "probation_percentage",
+    # )
     @api.depends(
-        "worked_hours",
-        "attendance_line_ids",
         "probation_start_date",
         "probation_end_date",
-        "probation_percentage",
+        "hourly_rate",
+        "attendance_line_ids.approved",
+        "attendance_line_ids.worked_hours",
+        "insurance",
+        "meal_allowance",
+        "kpi_bonus",
+        "other_bonus",
+        "monthly_wage_vnd",
+    )
+    @api.onchange(
+        "probation_start_date",
+        "probation_end_date",
+        "hourly_rate",
+        "attendance_line_ids.approved",
+        "attendance_line_ids.worked_hours",
+        "insurance",
+        "meal_allowance",
+        "kpi_bonus",
+        "other_bonus",
+        "monthly_wage_vnd",
     )
     def _compute_total_salary(self):
         for payslip in self:
@@ -206,8 +230,8 @@ class HrPayslip(models.Model):
                 f"Hourly rate: {hourly_rate}, Probation percentage: {payslip.probation_percentage}%"
             )
 
-            # Check if probation dates are defined and within the payslip period
             if payslip.probation_start_date and payslip.probation_end_date:
+                # Probation period is defined
                 probation_start = fields.Date.from_string(payslip.probation_start_date)
                 probation_end = fields.Date.from_string(payslip.probation_end_date)
 
@@ -239,10 +263,14 @@ class HrPayslip(models.Model):
                     f"No probation period defined. All approved hours treated as normal: {normal_hours} hours."
                 )
 
-            # Calculate probation salary
-            probation_salary = (
-                probation_hours * hourly_rate * (payslip.probation_percentage / 100.0)
-            )
+            # Calculate probation salary only if probation period is defined
+            probation_salary = 0
+            if probation_hours > 0:
+                probation_salary = (
+                    probation_hours
+                    * hourly_rate
+                    * (payslip.probation_percentage / 100.0)
+                )
             _logger.info(
                 f"Probation hours: {probation_hours}, Probation salary: {probation_salary}"
             )
@@ -253,21 +281,35 @@ class HrPayslip(models.Model):
                 f"Normal hours: {normal_hours}, Normal salary: {normal_salary}"
             )
 
+            # Calculate total salary
+            if not payslip.probation_start_date or not payslip.probation_end_date:
+                # If no probation date, total salary is normal salary
+                total_salary = (
+                    normal_salary
+                    + payslip.insurance
+                    + payslip.meal_allowance
+                    + payslip.kpi_bonus
+                    + payslip.other_bonus
+                )
+            else:
+                # Include probation salary if probation period is defined
+                total_salary = (
+                    probation_salary
+                    + normal_salary
+                    + payslip.insurance
+                    + payslip.meal_allowance
+                    + payslip.kpi_bonus
+                    + payslip.other_bonus
+                )
+
             # Set computed fields
             payslip.probation_hours = probation_hours
             payslip.probation_salary = probation_salary
-            payslip.total_salary = (
-                probation_salary
-                + normal_salary
-                + payslip.insurance
-                + payslip.meal_allowance
-                + payslip.kpi_bonus
-                + payslip.other_bonus
-            )
+            payslip.total_salary = total_salary
 
             # Log final result
             _logger.info(
-                f"Total salary: {payslip.total_salary} (Probation: {probation_salary}, Normal: {normal_salary})"
+                f"Total salary: {total_salary} (Probation: {probation_salary}, Normal: {normal_salary})"
             )
 
     @api.onchange("monthly_wage_vnd")
