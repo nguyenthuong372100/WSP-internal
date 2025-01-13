@@ -286,7 +286,7 @@ class HrPayslip(models.Model):
                 # If no probation date, total salary is normal salary
                 total_salary = (
                     normal_salary
-                    + payslip.insurance
+                    - payslip.insurance
                     + payslip.meal_allowance
                     + payslip.kpi_bonus
                     + payslip.other_bonus
@@ -296,7 +296,7 @@ class HrPayslip(models.Model):
                 total_salary = (
                     probation_salary
                     + normal_salary
-                    + payslip.insurance
+                    - payslip.insurance
                     + payslip.meal_allowance
                     + payslip.kpi_bonus
                     + payslip.other_bonus
@@ -445,7 +445,7 @@ class HrPayslip(models.Model):
                 # If checkbox include_saturdays = True, calculate up to 2 Saturdays (6.5 hours/day)
                 if payslip.include_saturdays:
                     saturdays_to_count = min(saturday_count, 2)
-                    saturday_hours = saturdays_to_count * 6.5
+                    saturday_hours = saturdays_to_count * 8
                 else:
                     saturdays_to_count = 0
                     saturday_hours = 0

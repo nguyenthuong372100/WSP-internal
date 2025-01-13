@@ -86,7 +86,7 @@
                     </group>
                     <group string="Attendance Records">
                         <field name="attendance_ids" readonly="0">
-                            <tree string="Attendance Records" editable="bottom">
+                            <tree string="Attendance Records" editable="bottom" limit="50">
                                 <field name="check_in"/>
                                 <field name="check_out"/>
                                 <field name="worked_hours"/>
@@ -185,7 +185,7 @@
                     </group>
                     <group string="Attendance Records">
                         <field name="attendance_ids" readonly="1">
-                            <tree string="Attendance Records">
+                            <tree string="Attendance Records" limit="50">
                                 <!-- <field name="date"/> -->
                                 <field name="check_in"/>
                                 <field name="check_out"/>
