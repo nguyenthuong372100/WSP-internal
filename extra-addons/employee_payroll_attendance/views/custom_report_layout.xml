@@ -113,7 +113,7 @@
                 <!-- Tax Rate -->
                 <tr>
                     <td class="text-start">
-                        <strong>Tax Rate 15%:</strong>
+                        <strong>Tax Rate:</strong>
                     </td>
                     <td class="text-end">
                         <span t-esc="o.tax_rate or 'N/A'"/>
@@ -129,7 +129,7 @@
                         <span t-esc="o.amount_tax" t-options="{'widget': 'monetary', 'display_currency': o.currency_id}"/>
                     </td>
                 </tr>
-                
+
                 <!-- Bank Fee -->
                 <tr>
                     <td class="text-start">
