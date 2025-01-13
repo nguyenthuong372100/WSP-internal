@@ -4,7 +4,7 @@
     <template id="custom_report_invoice_template" inherit_id="web.external_layout_striped">
         <!-- Ensure logo displays correctly -->
         <xpath expr="//img[@class='float-start']" position="attributes">
-            <attribute name="style">width: 270px !important; max-height: none !important; max-width: none !important; height: 120px !important; margin-right: 60px !important;margin-bottom: 13px !important;margin-top: 5px !important;</attribute>
+            <attribute name="style">width: 270px !important; max-height: none !important; max-width: none !important; height: 120px !important; margin-right: 60px !important;margin-bottom: 15px !important;margin-top: 5px !important;</attribute>
         </xpath>
 
         <!-- Set company_address height to match logo -->
@@ -15,36 +15,36 @@
         <!-- Reduce margin and padding of <p> tags -->
         <xpath expr="//div[@class='float-start company_address']//ul[@class='list-unstyled']" position="inside">
             <style>
-                .float-start.company_address p {
-                    margin-bottom: 1px !important;
-                    margin-top: 1px !important;
-                }
+                    .float-start.company_address p {
+                        margin-bottom: 1px !important;
+                        margin-top: 1px !important;
+                    }
             </style>
         </xpath>
 
         <!-- Reduce header height -->
         <xpath expr="//div[contains(@class, 'clearfix mb8')]" position="attributes">
             <attribute name="style">
-                height: 138px !important;
-                position: relative; /* Change from fixed to relative */
+                    height: 138px !important;
+                    position: relative; /* Change from fixed to relative */
             </attribute>
         </xpath>
 
         <!-- Change link color in header -->
         <xpath expr="//div[contains(@class, 'clearfix mb8')]" position="inside">
             <style>
-                @media print {
+                    @media print {
+                        a {
+                            color: #495057 !important;
+                            text-decoration: none !important;
+                        }
+                        .clearfix.mb8, .clearfix.mb8 * {
+                            color: #495057 !important;
+                        }
+                    }
                     a {
                         color: #495057 !important;
-                        text-decoration: none !important;
                     }
-                    .clearfix.mb8, .clearfix.mb8 * {
-                        color: #495057 !important;
-                    }
-                }
-                a {
-                    color: #495057 !important;
-                }
             </style>
         </xpath>
     </template>
@@ -116,7 +116,7 @@
                         <strong>Tax Rate:</strong>
                     </td>
                     <td class="text-end">
-                        <span t-esc="o.tax_rate or 'N/A'"/>
+                        <span t-esc="o.tax_rate or '0.00'"/>
                     </td>
                 </tr>
 
@@ -158,14 +158,42 @@
         <field name="model">account.move</field>
         <field name="inherit_id" ref="account.view_move_form"/>
         <field name="arch" type="xml">
-            <!-- Insert Discount and Bank Fee before Untaxed Amount -->
             <xpath expr="//group[@class='oe_subtotal_footer oe_right']" position="before">
-                <group class="oe_subtotal_footer oe_right">
-                    <field name="discount" options="{'currency_field': 'currency_id'}"/>
-                    <field name="bank_fee" options="{'currency_field': 'currency_id'}"/>
+                <group class="custom_subtotal_footer oe_subtotal_footer oe_right" style="width: 100%;">
+                    <table style=" margin: 0 auto; border-spacing: 0;">
+                        <!-- Discount -->
+                        <tr>
+                            <td class="text-start" style=" text-align: left;">
+                                <span>Discount</span>
+                            </td>
+                            <td class="text-end" style="margin: 5px; text-align: right;">
+                                <field name="discount" options="{'currency_field': 'currency_id'}"/>
+                            </td>
+                        </tr>
+
+                        <!-- Bank Fee -->
+                        <tr>
+                            <td class="text-start" style=" text-align: left;">
+                                <span>Bank Fee</span>
+                            </td>
+                            <td class="text-end" style="margin: 5px; text-align: right;">
+                                <field name="bank_fee" options="{'currency_field': 'currency_id'}"/>
+                            </td>
+                        </tr>
+
+                        <!-- Subtotal Less Discount -->
+                        <tr>
+                            <td class="text-start" style=" text-align: left;">
+                                <span>Subtotal Less Discount</span>
+                            </td>
+                            <td class="text-end" style="margin: 5px; text-align: right;">
+                                <field name="subtotal_minus_discount" readonly="1" options="{'currency_field': 'currency_id'}"/>
+                            </td>
+                        </tr>
+                    </table>
                 </group>
             </xpath>
         </field>
     </record>
-</odoo>
 
+</odoo>

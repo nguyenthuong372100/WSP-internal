@@ -1,0 +1,4 @@
+.o_form_view .o_inner_group.oe_subtotal_footer {
+    grid-template-columns: 0fr !important;
+    border-top: none !important;
+} 
