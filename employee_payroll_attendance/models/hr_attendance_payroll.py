@@ -193,6 +193,18 @@ class HrPayslip(models.Model):
     #     "probation_end_date",
     #     "probation_percentage",
     # )
+    @api.depends(
+        "probation_start_date",
+        "probation_end_date",
+        "hourly_rate",
+        "attendance_line_ids.approved",
+        "attendance_line_ids.worked_hours",
+        "insurance",
+        "meal_allowance",
+        "kpi_bonus",
+        "other_bonus",
+        "monthly_wage_vnd",
+    )
     @api.onchange(
         "probation_start_date",
         "probation_end_date",
@@ -203,6 +215,7 @@ class HrPayslip(models.Model):
         "meal_allowance",
         "kpi_bonus",
         "other_bonus",
+        "monthly_wage_vnd",
     )
     def _compute_total_salary(self):
         for payslip in self:
