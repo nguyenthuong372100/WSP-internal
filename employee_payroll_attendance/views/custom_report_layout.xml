@@ -165,9 +165,8 @@
                     <field name="subtotal_less_discount" readonly="1" options="{'currency_field': 'currency_id'}"/>
                 </group>
             </xpath>
-
-            <xpath expr="//field[@name='amount_residual']" position="replace">
-                <group class="oe_subtotal_footer oe_right" style="width: 100%;">
+            <xpath expr="//group[@class='oe_subtotal_footer oe_right']" position="after">
+                <group class="oe_subtotal_footer oe_right" style="width: 100%;" >
                     <field name="custom_amount_residual" class="oe_subtotal_footer_separator" readonly="1" options="{'currency_field': 'currency_id'}"/>
                 </group>
             </xpath>
