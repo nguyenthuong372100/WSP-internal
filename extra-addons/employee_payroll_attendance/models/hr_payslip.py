@@ -333,7 +333,11 @@ class HrPayslipAttendance(models.Model):
         related_lines = self.env["hr.payslip.attendance"].search(
             [
                 ("attendance_id", "=", record.attendance_id.id),
-                ("payslip_id", "=", record.payslip_id.id),  # Only sync within the same payslip
+                (
+                    "payslip_id",
+                    "=",
+                    record.payslip_id.id,
+                ),  # Only sync within the same payslip
             ]
         )
         for line in related_lines:
