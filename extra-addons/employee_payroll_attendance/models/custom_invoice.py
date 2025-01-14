@@ -68,6 +68,17 @@ class AccountMove(models.Model):
         domain=["|", ("active", "=", False), ("active", "=", True)],
         help="Các loại thuế áp dụng trên số tiền cơ bản",
     )
+    preserved_discount = fields.Monetary(
+        string="Preserved Discount",
+        readonly=True,
+        currency_field="currency_id",
+    )
+
+    preserved_bank_fee = fields.Monetary(
+        string="Preserved Bank Fee",
+        readonly=True,
+        currency_field="currency_id",
+    )
 
     # Trường trạng thái
     state = fields.Selection(
@@ -165,23 +176,53 @@ class AccountMove(models.Model):
                 move.custom_amount_residual = (
                     standard_residual - move.discount + move.bank_fee
                 )
-
+    # Theo dõi sự thay đổi của các trường discount và bank_fee
     def write(self, vals):
-        # Ghi lại các giá trị discount và bank_fee trước khi thay đổi trạng thái
-        if "state" in vals:
-            for record in self:
-                record._update_custom_amounts()
-        return super(AccountMove, self).write(vals)
-
-    def _update_custom_amounts(self):
-        """Cập nhật các giá trị tùy chỉnh khi thay đổi trạng thái"""
-        self.ensure_one()
-        if self.state == "draft" and self.discount or self.bank_fee:
-            # Lưu lại các giá trị vào trường tạm hoặc context
-            self.with_context(
-                preserve_discount=self.discount, preserve_bank_fee=self.bank_fee
+        for record in self:
+            # Kiểm tra nếu discount hoặc bank_fee được thay đổi
+            discount_changed = (
+                "discount" in vals and vals["discount"] != record.discount
+            )
+            bank_fee_changed = (
+                "bank_fee" in vals and vals["bank_fee"] != record.bank_fee
             )
 
+            if discount_changed:
+                record.preserved_discount = vals["discount"]
+                _logger.info(
+                    f"[AccountMove ID {record.id}] Discount updated to {vals['discount']}, preserved value updated."
+                )
+
+            if bank_fee_changed:
+                record.preserved_bank_fee = vals["bank_fee"]
+                _logger.info(
+                    f"[AccountMove ID {record.id}] Bank Fee updated to {vals['bank_fee']}, preserved value updated."
+                )
+
+        # Gọi phương thức write gốc để lưu thay đổi
+        return super(AccountMove, self).write(vals)
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        records = super(AccountMove, self).create(vals_list)
+        for record in records:
+            # Khi tạo mới, lưu giá trị khởi tạo vào các trường preserved
+            record.preserved_discount = record.discount
+            record.preserved_bank_fee = record.bank_fee
+            _logger.info(
+                f"[AccountMove ID {record.id}] Created with discount={record.discount}, bank_fee={record.bank_fee}."
+            )
+        return records
+
+    def _update_custom_amounts(self):
+        """Cập nhật giá trị tùy chỉnh khi chuyển trạng thái"""
+        self.ensure_one()
+        # Lưu giá trị hiện tại vào các trường riêng
+        self.preserved_discount = self.discount
+        self.preserved_bank_fee = self.bank_fee
+        _logger.info(
+            f"[AccountMove ID {self.id}] State changed. Preserved discount={self.discount}, bank_fee={self.bank_fee}"
+        )
     @api.onchange("discount", "invoice_line_ids", "bank_fee", "tax_rate", "state")
     def _onchange_amount_total(self):
         """Cập nhật lại các trường tính toán khi có thay đổi"""
