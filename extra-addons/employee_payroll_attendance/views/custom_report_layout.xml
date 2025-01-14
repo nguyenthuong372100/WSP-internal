@@ -159,41 +159,20 @@
         <field name="inherit_id" ref="account.view_move_form"/>
         <field name="arch" type="xml">
             <xpath expr="//group[@class='oe_subtotal_footer oe_right']" position="before">
-                <group class="custom_subtotal_footer oe_subtotal_footer oe_right" style="width: 100%;">
-                    <table style=" margin: 0 auto; border-spacing: 0;">
-                        <!-- Discount -->
-                        <tr>
-                            <td class="text-start" style=" text-align: left;">
-                                <span>Discount</span>
-                            </td>
-                            <td class="text-end" style="margin: 5px; text-align: right;">
-                                <field name="discount" options="{'currency_field': 'currency_id'}"/>
-                            </td>
-                        </tr>
+                <group class="oe_subtotal_footer oe_right " style="width: 100%;">
 
-                        <!-- Bank Fee -->
-                        <tr>
-                            <td class="text-start" style=" text-align: left;">
-                                <span>Bank Fee</span>
-                            </td>
-                            <td class="text-end" style="margin: 5px; text-align: right;">
-                                <field name="bank_fee" options="{'currency_field': 'currency_id'}"/>
-                            </td>
-                        </tr>
+                    <field name="discount" options="{'currency_field': 'currency_id'}"/>
 
-                        <!-- Subtotal Less Discount -->
-                        <tr>
-                            <td class="text-start" style=" text-align: left;">
-                                <span>Subtotal Less Discount</span>
-                            </td>
-                            <td class="text-end" style="margin: 5px; text-align: right;">
-                                <field name="subtotal_minus_discount" readonly="1" options="{'currency_field': 'currency_id'}"/>
-                            </td>
-                        </tr>
-                    </table>
+                    <field name="bank_fee" options="{'currency_field': 'currency_id'}"/>
+
+                    <field name="subtotal_less_discount" readonly="1" options="{'currency_field': 'currency_id'}"/>
+                </group>
+            </xpath>
+            <xpath expr="//group[@class='oe_subtotal_footer oe_right']" position="after">
+                <group class="oe_subtotal_footer oe_right" style="width: 100%;" >
+                    <field name="custom_amount_residual" class="oe_subtotal_footer_separator" readonly="1" options="{'currency_field': 'currency_id'}"/>
                 </group>
             </xpath>
         </field>
     </record>
-
 </odoo>
