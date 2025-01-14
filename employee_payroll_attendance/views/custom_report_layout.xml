@@ -51,11 +51,73 @@
 
     <!-- Inherit Invoice Body -->
     <template id="custom_account_report_invoice_body" inherit_id="account.report_invoice_document">
+
+        <xpath expr="//div[@name='invoice_date']" position="replace">
+            <!-- Removed Invoice Date -->
+        </xpath>
+        <xpath expr="//div[@name='due_date']" position="replace">
+            <!-- Removed Due Date -->
+        </xpath>
+        <xpath expr="//div[@name='origin']" position="replace">
+            <!-- Removed Source -->
+        </xpath>
+        <xpath expr="//div[@name='customer_code']" position="replace">
+            <!-- Removed Customer Code -->
+        </xpath>
+        <xpath expr="//div[@name='reference']" position="replace">
+            <!-- Removed Reference -->
+        </xpath>
+
         <!-- Add Bill to section -->
         <xpath expr="//div[@class='row']" position="replace">
             <div class="row" style="margin-top: 25px;margin-bottom: 25px;">
                 <!-- Left side -->
-                <div class="col-7"></div>
+                <div class="col-7">
+                    <div class="row">
+                        <div class="col-6">
+                            <!-- Invoice Date -->
+                            <div class="mb-2" t-if="o.invoice_date" name="invoice_date">
+                                <t t-if="o.move_type == 'out_invoice'">
+                                    <strong>Invoice Date:</strong>
+                                </t>
+                                <t t-elif="o.move_type == 'out_refund'">
+                                    <strong>Credit Note Date:</strong>
+                                </t>
+                                <t t-elif="o.move_type == 'out_receipt'">
+                                    <strong>Receipt Date:</strong>
+                                </t>
+                                <t t-else="">
+                                    <strong>Date:</strong>
+                                </t>
+                                <p class="m-0" t-field="o.invoice_date" />
+                            </div>
+
+                            <!-- Due Date -->
+                            <div class="mb-2" t-if="o.invoice_date_due and o.move_type == 'out_invoice' and o.state == 'posted'" name="due_date">
+                                <strong>Due Date:</strong>
+                                <p class="m-0" t-field="o.invoice_date_due" />
+                            </div>
+
+                            <!-- Customer Code -->
+                            <div class="mb-2" t-if="o.partner_id.ref" name="customer_code">
+                                <strong>Customer Code:</strong>
+                                <p class="m-0" t-field="o.partner_id.ref" />
+                            </div>
+                        </div>
+
+                        <div class="col-6">                            <!-- Source -->
+                            <div class="mb-2" t-if="o.invoice_origin" name="origin">
+                                <strong>Source:</strong>
+                                <p class="m-0" t-field="o.invoice_origin" />
+                            </div>
+                            <!-- Reference -->
+                            <div class="mb-2" t-if="o.ref" name="reference">
+                                <strong>Reference:</strong>
+                                <p class="m-0" t-field="o.ref" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
                 <!-- Right side -->
                 <div class="col-5 text-start" name="bill_to_section" style=" margin-left: 0px;">
@@ -64,9 +126,8 @@
                         <span t-field="o.partner_id.name" style="margin-left: 10px;"></span>
                         <div t-field="o.partner_id" t-options="{&quot;widget&quot;: &quot;contact&quot;, &quot;fields&quot;: [&quot;address&quot;], &quot;no_marker&quot;: True}" style="padding-left: 60px !important;"></div>
                     </address>
-                    <div t-if="o.partner_id.vat" style="padding-left: 50px;">
+                    <div t-if="o.partner_id.vat" style="padding-left: 70px;">
                         <t t-if="o.company_id.account_fiscal_country_id.vat_label" t-esc="o.company_id.account_fiscal_country_id.vat_label"/>
-                        <t t-else="">Tax ID:</t>
                         <span t-field="o.partner_id.vat"></span>
                     </div>
                 </div>
@@ -110,8 +171,7 @@
                     </td>
                 </tr>
 
-                <!-- Tax Rate -->
-                <tr>
+                <!-- <tr>
                     <td class="text-start">
                         <strong>Tax Rate:</strong>
                     </td>
@@ -120,7 +180,6 @@
                     </td>
                 </tr>
 
-                <!-- Total Tax -->
                 <tr>
                     <td class="text-start">
                         <strong>Total Tax:</strong>
@@ -128,7 +187,7 @@
                     <td class="text-end">
                         <span t-esc="o.amount_tax" t-options="{'widget': 'monetary', 'display_currency': o.currency_id}"/>
                     </td>
-                </tr>
+                </tr> -->
 
                 <!-- Bank Fee -->
                 <tr>
@@ -159,8 +218,8 @@
         <field name="inherit_id" ref="account.view_move_form"/>
         <field name="arch" type="xml">
             <xpath expr="//group[@class='oe_subtotal_footer oe_right']" position="before">
-                <group class="oe_subtotal_footer oe_right" style="width: 100%; margin-right: 34px;">
-                    <field name="discount" options="{'currency_field': 'currency_id'}" attrs="{'readonly': [('state', '!=', 'draft')]}"/>
+                <group class="oe_right" style="margin-right: 50px;">
+                    <field name="discount" options="{'currency_field': 'currency_id'}" attrs="{'readonly': [('state', '!=', 'draft')]}" style="padding: 3px"/>
                     <field name="bank_fee" options="{'currency_field': 'currency_id'}" attrs="{'readonly': [('state', '!=', 'draft')]}"/>
                     <field name="subtotal_less_discount" readonly="1" options="{'currency_field': 'currency_id'}"/>
                 </group>

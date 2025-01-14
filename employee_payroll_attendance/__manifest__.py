@@ -11,11 +11,11 @@
         "web",
         "base",
         "hr_timesheet",
-        "hr_timesheet",
     ],
     "assets": {
         "web.assets_backend": [
             "employee_payroll_attendance/static/src/css/custom_style.css",
+            "employee_payroll_attendance/static/src/js/list_view_row_reload.js",
         ],
     },
     "data": [
