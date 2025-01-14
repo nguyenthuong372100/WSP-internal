@@ -6,7 +6,7 @@
         <field name="arch" type="xml">
             <xpath expr="//field[@name='attendance_ids']" position="replace">
                 <field name="attendance_line_ids" readonly="1">
-                    <tree string="Attendance Records" editable="bottom" decoration-muted="approved" limit="50">
+                    <tree string="Attendance Records" decoration-muted="approved" limit="60">
                         <field name="check_in"/>
                         <field name="check_out"/>
                         <field name="worked_hours"/>
