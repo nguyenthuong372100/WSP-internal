@@ -715,7 +715,7 @@ class HrPayslip(models.Model):
                 }
 
             # Ensure the employee has a home address
-            if not payslip.employee_id.address_home_id:
+            if not payslip.employee_id.sudo().address_home_id:
                 _logger.error(
                     f"No home address found for employee {payslip.employee_id.name}."
                 )
