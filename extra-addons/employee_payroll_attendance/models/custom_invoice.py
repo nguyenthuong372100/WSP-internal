@@ -176,6 +176,7 @@ class AccountMove(models.Model):
                 move.custom_amount_residual = (
                     standard_residual - move.discount + move.bank_fee
                 )
+
     # Theo dõi sự thay đổi của các trường discount và bank_fee
     def write(self, vals):
         for record in self:
@@ -223,6 +224,7 @@ class AccountMove(models.Model):
         _logger.info(
             f"[AccountMove ID {self.id}] State changed. Preserved discount={self.discount}, bank_fee={self.bank_fee}"
         )
+
     @api.onchange("discount", "invoice_line_ids", "bank_fee", "tax_rate", "state")
     def _onchange_amount_total(self):
         """Cập nhật lại các trường tính toán khi có thay đổi"""
