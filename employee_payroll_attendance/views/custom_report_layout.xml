@@ -169,7 +169,7 @@
                 </group>
             </xpath>
             <xpath expr="//group[@class='oe_subtotal_footer oe_right']" position="after">
-                <group class="oe_subtotal_footer oe_right" style="width: 100%;" >
+                <group class="oe_subtotal_footer oe_right" style="width: 100%;">
                     <field name="custom_amount_residual" class="oe_subtotal_footer_separator" readonly="1" options="{'currency_field': 'currency_id'}"/>
                 </group>
             </xpath>
