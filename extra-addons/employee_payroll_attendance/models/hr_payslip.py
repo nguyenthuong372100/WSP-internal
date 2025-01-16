@@ -2,7 +2,7 @@ from odoo import models, fields, api
 import logging
 from dateutil.relativedelta import relativedelta
 from odoo.exceptions import UserError
-
+from datetime import datetime, timedelta
 
 _logger = logging.getLogger(__name__)
 
@@ -381,6 +381,9 @@ class HrPayslipAttendance(models.Model):
         }
 
 
+_logger = logging.getLogger(__name__)
+
+
 class HrAttendance(models.Model):
     _inherit = "hr.attendance"
 
@@ -388,3 +391,33 @@ class HrAttendance(models.Model):
         """Toggle approval status for attendance."""
         for record in self:
             record.approved = not record.approved
+
+    @api.model
+    def _round_time(self, time):
+        """Làm tròn thời gian tới phút gần nhất"""
+        return (time + timedelta(seconds=30)).replace(second=0, microsecond=0)
+
+    @api.model
+    def create(self, vals):
+        """Làm tròn thời gian khi tạo mới"""
+        if "check_in" in vals and vals["check_in"]:
+            vals["check_in"] = self._round_time(
+                fields.Datetime.from_string(vals["check_in"])
+            )
+        if "check_out" in vals and vals["check_out"]:
+            vals["check_out"] = self._round_time(
+                fields.Datetime.from_string(vals["check_out"])
+            )
+        return super(HrAttendance, self).create(vals)
+
+    def write(self, vals):
+        """Làm tròn thời gian khi cập nhật"""
+        if "check_in" in vals and vals["check_in"]:
+            vals["check_in"] = self._round_time(
+                fields.Datetime.from_string(vals["check_in"])
+            )
+        if "check_out" in vals and vals["check_out"]:
+            vals["check_out"] = self._round_time(
+                fields.Datetime.from_string(vals["check_out"])
+            )
+        return super(HrAttendance, self).write(vals)
