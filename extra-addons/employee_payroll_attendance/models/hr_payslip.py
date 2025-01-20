@@ -197,11 +197,6 @@ class HrPayslip(models.Model):
                 for attendance in attendances
             ]
 
-            # Remove readonly status for date_from and date_to fields
-            # new_payslip.write({
-            #     'state': 'draft'
-            # })
-
     def action_approve_attendance(self):
         """
         Approve all attendance records in the selected payslip.

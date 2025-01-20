@@ -15,6 +15,7 @@
     "assets": {
         "web.assets_backend": [
             "employee_payroll_attendance/static/src/css/custom_style.css",
+            "employee_payroll_attendance/static/src/css/tree_view_sticky.css",
         ],
     },
     "data": [
