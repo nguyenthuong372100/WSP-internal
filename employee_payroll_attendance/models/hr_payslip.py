@@ -132,7 +132,6 @@ class HrPayslip(models.Model):
             line.approved_by = False
 
         return record
-
     def action_duplicate_payslips(self):
         """
         Duplicate payslips with new start and end dates one month after the current payslip.
@@ -197,6 +196,42 @@ class HrPayslip(models.Model):
                 for attendance in attendances
             ]
 
+            # Kích hoạt cơ chế tự động cập nhật Attendance mới
+            new_payslip._auto_update_attendance_records()
+    def _auto_update_attendance_records(self):
+        """
+        Tự động cập nhật các Attendance Records mới vào Payslip nếu chúng nằm trong khoảng thời gian date_from và date_to.
+        """
+        for payslip in self:
+            # Lấy tất cả Attendance Records thuộc khoảng thời gian của Payslip
+            attendances = self.env["hr.attendance"].search(
+                [
+                    ("employee_id", "=", payslip.employee_id.id),
+                    ("check_in", ">=", payslip.date_from),
+                    ("check_out", "<=", payslip.date_to),
+                ]
+            )
+
+            # Tìm các Attendance mới chưa được thêm vào Payslip
+            existing_attendance_ids = payslip.attendance_line_ids.mapped("attendance_id.id")
+            new_attendances = attendances.filtered(lambda a: a.id not in existing_attendance_ids)
+
+            # Thêm các Attendance mới vào Payslip
+            payslip.attendance_line_ids = [
+                (
+                    0,
+                    0,
+                    {
+                        "attendance_id": attendance.id,
+                        "check_in": attendance.check_in,
+                        "check_out": attendance.check_out,
+                        "worked_hours": attendance.worked_hours,
+                        "approved": False,
+                    },
+                )
+                for attendance in new_attendances
+            ]
+            
     def action_approve_attendance(self):
         """
         Approve all attendance records in the selected payslip.
@@ -394,7 +429,8 @@ class HrAttendance(models.Model):
 
     @api.model
     def create(self, vals):
-        """Làm tròn thời gian khi tạo mới"""
+        """Làm tròn thời gian khi tạo mới và tự động đồng bộ với Payslip"""
+        # Làm tròn thời gian check_in và check_out
         if "check_in" in vals and vals["check_in"]:
             vals["check_in"] = self._round_time(
                 fields.Datetime.from_string(vals["check_in"])
@@ -403,7 +439,25 @@ class HrAttendance(models.Model):
             vals["check_out"] = self._round_time(
                 fields.Datetime.from_string(vals["check_out"])
             )
-        return super(HrAttendance, self).create(vals)
+
+        # Tạo Attendance Record mới
+        attendance = super(HrAttendance, self).create(vals)
+
+        # Tìm Payslip trong khoảng thời gian phù hợp
+        payslip = self.env["hr.payslip"].search(
+            [
+                ("employee_id", "=", attendance.employee_id.id),
+                ("date_from", "<=", attendance.check_in),
+                ("date_to", ">=", attendance.check_out),
+            ],
+            limit=1,
+        )
+
+        if payslip:
+            # Gọi phương thức cập nhật Attendance mới
+            payslip._auto_update_attendance_records()
+
+        return attendance
 
     def write(self, vals):
         """Làm tròn thời gian khi cập nhật"""
