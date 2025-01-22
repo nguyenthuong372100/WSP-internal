@@ -12,9 +12,6 @@
                         <field name="check_out"/>
                         <field name="approved"/>
                     </group>
-                    <footer>
-                        
-                    </footer>
                 </sheet>
             </form>
         </field>

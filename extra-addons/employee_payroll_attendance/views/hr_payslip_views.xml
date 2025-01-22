@@ -6,7 +6,7 @@
         <field name="res_model">hr.payslip</field>
         <field name="view_mode">tree,form</field>
         <field name="context">{'group_by': ['date_to:month',"date_to:day"]}</field>
-        
+
     </record>
 
     <!-- Define the top-level Manage Payslip menu item under the HR root menu, restricted to administrators -->
@@ -15,7 +15,6 @@
     <!-- Define the Payslips submenu under Manage Payslip, restricted to administrators -->
     <menuitem id="menu_hr_payslip" name="Payslips" parent="menu_hr_manage_payslip_root" action="action_hr_payslip" groups="base.group_system"/>
 
-
     <!-- Define the form view for Payslip with status-based actions and new fields -->
     <record id="view_payslip_form" model="ir.ui.view">
         <field name="name">hr.payslip.form</field>
@@ -23,15 +22,28 @@
         <field name="arch" type="xml">
             <form string="Payslip">
                 <header>
-                    <!-- Status-based action buttons for various stages of payslip -->
-                    <button name="generate_payslip" type="object" string="Generate Payslip" class="btn-primary" attrs="{'invisible': [('status', '!=', 'draft')]}"/>
-                    <button name="action_set_draft" type="object" string="Set to Draft" class="btn-secondary" attrs="{'invisible': [('status', '!=', 'generated')]}"/>
-                    <button name="action_employee_confirm" type="object" string="Employee Confirm" class="btn-primary" attrs="{'invisible': [('status', '!=', 'generated')]}"/>
-                    <button name="action_revert_generated" type="object" string="Back to Generated" class="btn-secondary" attrs="{'invisible': [('status', '!=', 'employee_confirm')]}"/>
-                    <button name="action_transfer_payment" type="object" string="Transfer Payment" class="btn-primary" attrs="{'invisible': [('status', '!=', 'employee_confirm')]}"/>
-                    <button name="action_revert_employee_confirm" type="object" string="Back to Employee Confirm" class="btn-secondary" attrs="{'invisible': [('status', '!=', 'transfer_payment')]}"/>
-                    <button name="action_done" type="object" string="Mark as Done" class="btn-success" attrs="{'invisible': [('status', '!=', 'transfer_payment')]}"/>
-                    <button name="action_revert_transfer_payment" type="object" string="Back to Transfer Payment" class="btn-secondary" attrs="{'invisible': [('status', '!=', 'done')]}"/>
+                    <!-- Status-based action buttons -->
+                    <button name="generate_payslip" type="object" string="Generate Payslip" class="btn-primary" attrs="{'invisible': [('status', '!=', 'draft')]}" groups="account.group_account_manager,base.group_system"/>
+
+                    <button name="action_set_draft" type="object" string="Set to Draft" class="btn-secondary" attrs="{'invisible': [('status', '!=', 'generated')]}" groups="account.group_account_manager,base.group_system"/>
+
+                    <button name="action_employee_confirm" type="object" string="Employee Confirm" class="btn-primary" attrs="{'invisible': [('status', '!=', 'generated')]}" groups="base.group_user"/>
+
+                    <button name="action_revert_generated" type="object" string="Back to Generated" class="btn-secondary" attrs="{'invisible': [('status', '!=', 'employee_confirm')]}" groups="account.group_account_manager,base.group_system"/>
+
+                    <button name="action_transfer_payment" type="object" string="Transfer Payment" class="btn-primary" attrs="{'invisible': [('status', '!=', 'employee_confirm')]}" groups="account.group_account_manager,base.group_system"/>
+
+                    <!-- Back to Transfer Payment button -->
+                    <button name="action_revert_transfer_payment" type="object" string="Back to Transfer Payment" class="btn-secondary" attrs="{'invisible': [('status', '!=', 'transfer_payment')]}" groups="account.group_account_manager,base.group_system"/>
+                    <!-- Mark as Done button -->
+                    <button name="action_done"
+                            type="object"
+                            string="Mark as Done"
+                            class="btn-success"
+                            attrs="{'invisible': [('status', '!=', 'transfer_payment')]}"
+                            groups="account.group_account_manager,base.group_system"/>
+
+                    <!-- Status bar -->
                     <field name="status" widget="statusbar" readonly="1"/>
                 </header>
                 <sheet>
@@ -40,13 +52,14 @@
                         <field name="employee_id"/>
                         <field name="date_from"/>
                         <field name="date_to"/>
+                        <field name="include_saturdays" widget="boolean_toggle" string="Include Saturdays"/>
                     </group>
+
                     <group>
                         <field name="wage" placeholder="Monthly Wage (USD)"/>
                         <field name="hourly_rate" placeholder="Hourly Rate (USD)"/>
                         <field name="hourly_rate_vnd" placeholder="Hourly Rate (VND)"/>
                         <field name="monthly_wage_vnd" placeholder="Monthly Rate (VND)" />
-
                     </group>
                     <group string="Salary">
                         <field name="worked_hours" readonly="1"/>
@@ -58,11 +71,10 @@
                         <field name="probation_end_date"/>
                         <field name="probation_percentage"/>
                         <field name="probation_hours" readonly="1"/>
-                        <field name="probation_salary" readonly="1"/>                        
+                        <field name="probation_salary" readonly="1"/>
                     </group>
                     <group>
-                        <field name="currency_rate_fallback" string="Fallback USD to VND Rate"
-                               help="This rate is used for salary conversion if the live rate is unavailable."/>
+                        <field name="currency_rate_fallback" string="Fallback USD to VND Rate" help="This rate is used for salary conversion if the live rate is unavailable."/>
                     </group>
                     <group string="Allowances and Bonuses">
                         <field name="insurance"/>
@@ -76,19 +88,17 @@
                         <field name="approved_working_days" readonly="1"/>
                         <field name="approved_working_hours" readonly="1"/>
                     </group>
-
-                    
                     <group string="Attendance Records">
-                        <field name="attendance_ids" readonly="1">
-                            <tree string="Attendance Records">
+                        <field name="attendance_ids" readonly="0">
+                            <tree string="Attendance Records" editable="bottom" limit="60">
                                 <field name="check_in"/>
                                 <field name="check_out"/>
                                 <field name="worked_hours"/>
                                 <field name="approved"/>
                                 <button name="toggle_approval" type="object" string="Approve" attrs="{'invisible': [('approved', '=', True)]}" class="btn-primary oe_inline"/>
                                 <button name="toggle_approval" type="object" string="Unapprove" attrs="{'invisible': [('approved', '=', False)]}" class="btn-danger oe_inline"/>
-                                <!-- View Details Button -->
                                 <button name="action_view_details" type="object" string="View Details" class="btn-secondary oe_inline"/>
+                                <field name="approved_by" string="Approved by" readonly="1" attrs="{'invisible': [('approved', '=', False)]}"/>
                             </tree>
                         </field>
                     </group>
@@ -118,8 +128,6 @@
         </field>
     </record>
 
-
-
     <!-- Define the tree view for Payslip Report with new fields for allowances, bonuses, and attendance records -->
     <record id="view_payslip_report_tree" model="ir.ui.view">
         <field name="name">hr.payslip.report.tree</field>
@@ -146,7 +154,6 @@
             </tree>
         </field>
     </record>
-    
 
     <!-- Define the form view for the Payslip Report, including attendance records and button toggling based on status -->
     <record id="view_payslip_report_form" model="ir.ui.view">
@@ -182,7 +189,7 @@
                     </group>
                     <group string="Attendance Records">
                         <field name="attendance_ids" readonly="1">
-                            <tree string="Attendance Records">
+                            <tree string="Attendance Records" limit="60">
                                 <!-- <field name="date"/> -->
                                 <field name="check_in"/>
                                 <field name="check_out"/>

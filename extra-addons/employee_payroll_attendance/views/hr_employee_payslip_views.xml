@@ -56,24 +56,12 @@
         <field name="model">attendance.timesheet.details</field>
         <field name="arch" type="xml">
             <form string="Attendance and Timesheet Details">
-                <header>
-                    <!-- Dynamically toggle button text based on the approved status -->
-                    <button name="action_toggle_approval" type="object" 
-                            string="Approve" 
-                            class="btn-primary"
-                            attrs="{'invisible': [('approved', '=', True)]}"/>
-                    <button name="action_toggle_approval" type="object" 
-                            string="Unapprove" 
-                            class="btn-danger"
-                            attrs="{'invisible': [('approved', '=', False)]}"/>
-                </header>
                 <group>
                     <field name="employee_id" readonly="1"/>
                     <field name="date" readonly="1"/>
                     <field name="check_in" readonly="1"/>
                     <field name="check_out" readonly="1"/>
                     <field name="worked_hours" readonly="1"/>
-                    <field name="approved" readonly="1"/>
                 </group>
                 <group string="Timesheet Records">
                     <field name="timesheet_html" readonly="1" widget="html"/>
@@ -92,8 +80,5 @@
     </record>
 
     <!-- Payroll Report Menu Item for Employee Access Only -->
-    <menuitem id="menu_hr_payroll_report" name="Payroll Report"
-              parent="hr.menu_hr_root"
-              action="employee_payroll_attendance.action_payslip_report"
-              groups="base.group_user"/>
+    <menuitem id="menu_hr_payroll_report" name="Payroll Report" parent="hr.menu_hr_root" action="employee_payroll_attendance.action_payslip_report" groups="base.group_user"/>
 </odoo>
