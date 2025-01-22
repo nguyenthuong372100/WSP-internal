@@ -1,0 +1,8 @@
+<odoo>
+    <record id="sale.action_quotations_with_onboarding" model="ir.actions.act_window">
+        <field name="context" eval="{}"/>
+
+        <!-- <field name="domain">[]</field>        
+        <field name="order">name desc</field>         -->
+    </record>
+</odoo>
