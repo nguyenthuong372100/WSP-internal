@@ -6,7 +6,7 @@
         <field name="arch" type="xml">
             <xpath expr="//field[@name='attendance_ids']" position="replace">
                 <field name="attendance_line_ids" readonly="1">
-                    <tree string="Attendance Records" decoration-muted="approved">
+                    <tree string="Attendance Records" decoration-muted="approved" limit="60" default_order="check_in desc">
                         <field name="check_in"/>
                         <field name="check_out"/>
                         <field name="worked_hours"/>
@@ -25,6 +25,7 @@
             </xpath>
         </field>
     </record>
+
 
     <record id="action_duplicate_payslip" model="ir.actions.server">
         <field name="name">Create payslip for next month</field>
