@@ -427,40 +427,39 @@ class HrAttendance(models.Model):
         """Làm tròn thời gian tới phút gần nhất"""
         return (time + timedelta(seconds=30)).replace(second=0, microsecond=0)
 
-    @api.model
-    def create(self, vals):
+    @api.model_create_multi
+    def create(self, vals_list):
         """Làm tròn thời gian khi tạo mới và tự động đồng bộ với Payslip"""
-        # Làm tròn thời gian check_in và check_out
-        if "check_in" in vals and vals["check_in"]:
-            vals["check_in"] = self._round_time(
-                fields.Datetime.from_string(vals["check_in"])
-            )
-        if "check_out" in vals and vals["check_out"]:
-            vals["check_out"] = self._round_time(
-                fields.Datetime.from_string(vals["check_out"])
-            )
+        # Làm tròn thời gian cho tất cả records
+        for vals in vals_list:
+            if "check_in" in vals and vals["check_in"]:
+                vals["check_in"] = self._round_time(
+                    fields.Datetime.from_string(vals["check_in"])
+                )
+            if "check_out" in vals and vals["check_out"]:
+                vals["check_out"] = self._round_time(
+                    fields.Datetime.from_string(vals["check_out"])
+                )
 
-        # Tạo Attendance Record mới
-        attendance = super(HrAttendance, self).create(vals)
+        # Tạo attendance records
+        attendances = super().create(vals_list)
 
-        # Tìm Payslip trong khoảng thời gian phù hợp
-        payslip = self.env["hr.payslip"].search(
-            [
-                ("employee_id", "=", attendance.employee_id.id),
-                ("date_from", "<=", attendance.check_in),
-                ("date_to", ">=", attendance.check_out),
-            ],
-            limit=1,
-        )
+        # Cập nhật payslip cho mỗi attendance
+        for attendance in attendances:
+            if attendance.check_out:  # Chỉ cập nhật khi đã check out
+                payslips = self.env["hr.payslip"].search([
+                    ("employee_id", "=", attendance.employee_id.id),
+                    ("date_from", "<=", attendance.check_in),
+                    ("date_to", ">=", attendance.check_out),
+                ])
+                if payslips:
+                    payslips._auto_update_attendance_records()
 
-        if payslip:
-            # Gọi phương thức cập nhật Attendance mới
-            payslip._auto_update_attendance_records()
-
-        return attendance
+        return attendances
 
     def write(self, vals):
-        """Làm tròn thời gian khi cập nhật"""
+        """Làm tròn thời gian khi cập nhật và đồng bộ với Payslip"""
+        # Làm tròn thời gian
         if "check_in" in vals and vals["check_in"]:
             vals["check_in"] = self._round_time(
                 fields.Datetime.from_string(vals["check_in"])
@@ -469,4 +468,20 @@ class HrAttendance(models.Model):
             vals["check_out"] = self._round_time(
                 fields.Datetime.from_string(vals["check_out"])
             )
-        return super(HrAttendance, self).write(vals)
+
+        # Thực hiện cập nhật
+        result = super().write(vals)
+
+        # Cập nhật payslip nếu có thay đổi check_in hoặc check_out
+        if "check_in" in vals or "check_out" in vals:
+            for attendance in self:
+                if attendance.check_out:  # Chỉ cập nhật khi đã check out
+                    payslips = self.env["hr.payslip"].search([
+                        ("employee_id", "=", attendance.employee_id.id),
+                        ("date_from", "<=", attendance.check_in),
+                        ("date_to", ">=", attendance.check_out)
+                    ])
+                    if payslips:
+                        payslips._auto_update_attendance_records()
+
+        return result
