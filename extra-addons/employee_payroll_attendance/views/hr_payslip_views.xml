@@ -36,12 +36,7 @@
                     <!-- Back to Transfer Payment button -->
                     <button name="action_revert_transfer_payment" type="object" string="Back to Transfer Payment" class="btn-secondary" attrs="{'invisible': [('status', '!=', 'transfer_payment')]}" groups="account.group_account_manager,base.group_system"/>
                     <!-- Mark as Done button -->
-                    <button name="action_done"
-                            type="object"
-                            string="Mark as Done"
-                            class="btn-success"
-                            attrs="{'invisible': [('status', '!=', 'transfer_payment')]}"
-                            groups="account.group_account_manager,base.group_system"/>
+                    <button name="action_done" type="object" string="Mark as Done" class="btn-success" attrs="{'invisible': [('status', '!=', 'transfer_payment')]}" groups="account.group_account_manager,base.group_system"/>
 
                     <!-- Status bar -->
                     <field name="status" widget="statusbar" readonly="1"/>
