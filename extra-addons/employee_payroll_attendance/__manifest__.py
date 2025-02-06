@@ -11,6 +11,7 @@
         "web",
         "base",
         "hr_timesheet",
+        "sale_management",
     ],
     "assets": {
         "web.assets_backend": [
