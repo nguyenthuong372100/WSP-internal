@@ -132,72 +132,74 @@ class HrPayslip(models.Model):
             line.approved_by = False
 
         return record
-    def action_duplicate_payslips(self):
-        """
-        Duplicate payslips with new start and end dates one month after the current payslip.
-        """
-        for payslip in self:
-            # Calculate new start and end dates
-            new_start_date = payslip.date_from + relativedelta(months=1)
-            new_end_date = payslip.date_to + relativedelta(months=1)
 
-            # Check if a payslip already exists for the employee and date range
-            existing_payslip = self.env["hr.payslip"].search(
-                [
-                    ("employee_id", "=", payslip.employee_id.id),
-                    ("date_from", "=", new_start_date),
-                    ("date_to", "=", new_end_date),
-                ],
-                limit=1,
-            )
+    # def action_duplicate_payslips(self):
+    #     """
+    #     Duplicate payslips with new start and end dates one month after the current payslip.
+    #     """
+    #     for payslip in self:
+    #         # Calculate new start and end dates
+    #         new_start_date = payslip.date_from + relativedelta(months=1)
+    #         new_end_date = payslip.date_to + relativedelta(months=1)
 
-            if existing_payslip:
-                raise UserError(
-                    (
-                        f"Payslip already exists for employee {payslip.employee_id.name} "
-                        f"from {new_start_date} to {new_end_date}. Unable to duplicate!"
-                    )
-                )
+    #         # Check if a payslip already exists for the employee and date range
+    #         existing_payslip = self.env["hr.payslip"].search(
+    #             [
+    #                 ("employee_id", "=", payslip.employee_id.id),
+    #                 ("date_from", "=", new_start_date),
+    #                 ("date_to", "=", new_end_date),
+    #             ],
+    #             limit=1,
+    #         )
 
-            # Copy current payslip with new start and end dates
-            new_payslip = payslip.copy(
-                {
-                    "date_from": new_start_date,
-                    "date_to": new_end_date,
-                }
-            )
+    #         if existing_payslip:
+    #             raise UserError(
+    #                 (
+    #                     f"Payslip already exists for employee {payslip.employee_id.name} "
+    #                     f"from {new_start_date} to {new_end_date}. Unable to duplicate!"
+    #                 )
+    #             )
 
-            # Remove existing attendance records (if any) for the new payslip
-            if new_payslip.attendance_line_ids:
-                new_payslip.attendance_line_ids.unlink()
+    #         # Copy current payslip with new start and end dates
+    #         new_payslip = payslip.copy(
+    #             {
+    #                 "date_from": new_start_date,
+    #                 "date_to": new_end_date,
+    #             }
+    #         )
 
-            # Filter attendance records according to new date range
-            attendances = self.env["hr.attendance"].search(
-                [
-                    ("employee_id", "=", payslip.employee_id.id),
-                    ("check_in", ">=", new_start_date),
-                    ("check_out", "<=", new_end_date),
-                ]
-            )
+    #         # Remove existing attendance records (if any) for the new payslip
+    #         if new_payslip.attendance_line_ids:
+    #             new_payslip.attendance_line_ids.unlink()
 
-            # Create new attendance records linked to the new payslip
-            new_payslip.attendance_line_ids = [
-                (
-                    0,
-                    0,
-                    {
-                        "attendance_id": attendance.id,
-                        "check_in": attendance.check_in,
-                        "check_out": attendance.check_out,
-                        "worked_hours": attendance.worked_hours,
-                        "approved": False,
-                    },
-                )
-                for attendance in attendances
-            ]
+    #         # Filter attendance records according to new date range
+    #         attendances = self.env["hr.attendance"].search(
+    #             [
+    #                 ("employee_id", "=", payslip.employee_id.id),
+    #                 ("check_in", ">=", new_start_date),
+    #                 ("check_out", "<=", new_end_date),
+    #             ]
+    #         )
 
-            # Kích hoạt cơ chế tự động cập nhật Attendance mới
-            new_payslip._auto_update_attendance_records()
+    #         # Create new attendance records linked to the new payslip
+    #         new_payslip.attendance_line_ids = [
+    #             (
+    #                 0,
+    #                 0,
+    #                 {
+    #                     "attendance_id": attendance.id,
+    #                     "check_in": attendance.check_in,
+    #                     "check_out": attendance.check_out,
+    #                     "worked_hours": attendance.worked_hours,
+    #                     "approved": False,
+    #                 },
+    #             )
+    #             for attendance in attendances
+    #         ]
+
+    #         # Kích hoạt cơ chế tự động cập nhật Attendance mới
+    #         new_payslip._auto_update_attendance_records()
+
     def _auto_update_attendance_records(self):
         """
         Tự động cập nhật các Attendance Records mới vào Payslip nếu chúng nằm trong khoảng thời gian date_from và date_to.
@@ -213,8 +215,12 @@ class HrPayslip(models.Model):
             )
 
             # Tìm các Attendance mới chưa được thêm vào Payslip
-            existing_attendance_ids = payslip.attendance_line_ids.mapped("attendance_id.id")
-            new_attendances = attendances.filtered(lambda a: a.id not in existing_attendance_ids)
+            existing_attendance_ids = payslip.attendance_line_ids.mapped(
+                "attendance_id.id"
+            )
+            new_attendances = attendances.filtered(
+                lambda a: a.id not in existing_attendance_ids
+            )
 
             # Thêm các Attendance mới vào Payslip
             payslip.attendance_line_ids = [
@@ -231,7 +237,7 @@ class HrPayslip(models.Model):
                 )
                 for attendance in new_attendances
             ]
-            
+
     def action_approve_attendance(self):
         """
         Approve all attendance records in the selected payslip.
@@ -447,11 +453,13 @@ class HrAttendance(models.Model):
         # Cập nhật payslip cho mỗi attendance
         for attendance in attendances:
             if attendance.check_out:  # Chỉ cập nhật khi đã check out
-                payslips = self.env["hr.payslip"].search([
-                    ("employee_id", "=", attendance.employee_id.id),
-                    ("date_from", "<=", attendance.check_in),
-                    ("date_to", ">=", attendance.check_out),
-                ])
+                payslips = self.env["hr.payslip"].search(
+                    [
+                        ("employee_id", "=", attendance.employee_id.id),
+                        ("date_from", "<=", attendance.check_in),
+                        ("date_to", ">=", attendance.check_out),
+                    ]
+                )
                 if payslips:
                     payslips._auto_update_attendance_records()
 
@@ -476,12 +484,107 @@ class HrAttendance(models.Model):
         if "check_in" in vals or "check_out" in vals:
             for attendance in self:
                 if attendance.check_out:  # Chỉ cập nhật khi đã check out
-                    payslips = self.env["hr.payslip"].search([
-                        ("employee_id", "=", attendance.employee_id.id),
-                        ("date_from", "<=", attendance.check_in),
-                        ("date_to", ">=", attendance.check_out)
-                    ])
+                    payslips = self.env["hr.payslip"].search(
+                        [
+                            ("employee_id", "=", attendance.employee_id.id),
+                            ("date_from", "<=", attendance.check_in),
+                            ("date_to", ">=", attendance.check_out),
+                        ]
+                    )
                     if payslips:
                         payslips._auto_update_attendance_records()
 
         return result
+
+
+class HrPayslipDuplicateWizard(models.TransientModel):
+    _name = "hr.payslip.duplicate.wizard"
+    _description = "Wizard for duplicating payslip"
+
+    currency_rate_fallback = fields.Float(
+        string="Currency Rate Fallback", required=True
+    )
+
+    def action_duplicate_payslips(self):
+        """
+        Duplicate multiple payslips with:
+        - Updated `currency_rate_fallback` applied to all new payslips.
+        - New start and end dates set to one month after the original payslip.
+        - Validation to prevent duplicate payslips for the same employee and date range.
+        - Attendance records updated accordingly.
+        """
+        active_ids = self.env.context.get("active_ids", [])
+        if not active_ids:
+            raise UserError("No payslips selected to duplicate.")
+
+        for payslip in self.env["hr.payslip"].browse(active_ids):
+            # Tính toán ngày mới (tháng kế tiếp)
+            new_start_date = payslip.date_from + relativedelta(months=1)
+            new_end_date = payslip.date_to + relativedelta(months=1)
+
+            # Kiểm tra xem đã tồn tại phiếu lương cho tháng tiếp theo chưa
+            existing_payslip = self.env["hr.payslip"].search(
+                [
+                    ("employee_id", "=", payslip.employee_id.id),
+                    ("date_from", "=", new_start_date),
+                    ("date_to", "=", new_end_date),
+                ],
+                limit=1,
+            )
+            if existing_payslip:
+                raise UserError(
+                    (
+                        f"Payslip already exists for employee {payslip.employee_id.name} "
+                        f"from {new_start_date} to {new_end_date}. Unable to duplicate!"
+                    )
+                )
+
+            # Sao chép Payslip với giá trị mới
+            new_payslip = payslip.copy(
+                {
+                    "date_from": new_start_date,
+                    "date_to": new_end_date,
+                    "currency_rate_fallback": self.currency_rate_fallback,  # Cập nhật giá trị mới
+                }
+            )
+
+            # Xóa danh sách chấm công cũ (nếu có)
+            if new_payslip.attendance_line_ids:
+                new_payslip.attendance_line_ids.unlink()
+
+            # Lấy danh sách chấm công phù hợp với khoảng thời gian mới
+            attendances = self.env["hr.attendance"].search(
+                [
+                    ("employee_id", "=", payslip.employee_id.id),
+                    ("check_in", ">=", new_start_date),
+                    ("check_out", "<=", new_end_date),
+                ]
+            )
+
+            # Thêm chấm công vào phiếu lương mới
+            new_payslip.attendance_line_ids = [
+                (
+                    0,
+                    0,
+                    {
+                        "attendance_id": attendance.id,
+                        "check_in": attendance.check_in,
+                        "check_out": attendance.check_out,
+                        "worked_hours": attendance.worked_hours,
+                        "approved": False,
+                    },
+                )
+                for attendance in attendances
+            ]
+
+            # Kích hoạt cơ chế tự động cập nhật Attendance mới
+            new_payslip._auto_update_attendance_records()
+
+        # return {"type": "ir.actions.client", "tag": "reload"}
+        return {
+            "effect": {
+                "fadeout": "slow",
+                "message": "Payslip(s) duplicated successfully!",
+                "type": "rainbow_man",
+            }
+        }
