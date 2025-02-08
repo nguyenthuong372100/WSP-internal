@@ -11,6 +11,7 @@
         "web",
         "base",
         "hr_timesheet",
+        "sale_management",
     ],
     "assets": {
         "web.assets_backend": [
@@ -29,7 +30,6 @@
         "views/hr_payslip_views_update.xml",
         "views/menu_reporting.xml",
         "views/custom_module_sale.xml",
-        # "views/custom_invoice_template.xml",
     ],
     "installable": True,
     "application": False,
