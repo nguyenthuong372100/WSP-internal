@@ -212,9 +212,3 @@ class AccountMove(models.Model):
         self._compute_subtotal()
         self._compute_subtotal_less_discount()
         self._compute_amount_residual()
-
-    def _get_mail_rendering_context(self):
-        """Override mail context to include custom_amount_residual"""
-        res = super(AccountMove, self)._get_mail_rendering_context()
-        res["custom_amount_residual"] = self.custom_amount_residual
-        return res

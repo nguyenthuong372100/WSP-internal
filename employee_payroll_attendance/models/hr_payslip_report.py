@@ -92,6 +92,11 @@ class HrPayslipReport(models.Model):
     kpi_bonus = fields.Float(string="KPI Bonus", readonly=True)
     other_bonus = fields.Float(string="Other Bonus", readonly=True)
 
+    insurance_vnd = fields.Float(string="Insurance (VND)", readonly=True)
+    meal_allowance_vnd = fields.Float(string="Meal Allowance (VND)", readonly=True)
+    kpi_bonus_vnd = fields.Float(string="KPI Bonus (VND)", readonly=True)
+    other_bonus_vnd = fields.Float(string="Other Bonus (VND)", readonly=True)
+
     # New One2many field for related attendance records
     attendance_ids = fields.One2many(
         "hr.payslip.report.attendance",
