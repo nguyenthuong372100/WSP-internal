@@ -15,6 +15,7 @@
     "assets": {
         "web.assets_backend": [
             "employee_payroll_attendance/static/src/css/custom_style.css",
+            "employee_payroll_attendance/static/src/css/tree_view_sticky.css",
         ],
     },
     "data": [
@@ -27,6 +28,8 @@
         "views/custom_report_layout.xml",
         "views/hr_payslip_views_update.xml",
         "views/menu_reporting.xml",
+        "views/custom_module_sale.xml",
+        # "views/custom_invoice_template.xml",
     ],
     "installable": True,
     "application": False,

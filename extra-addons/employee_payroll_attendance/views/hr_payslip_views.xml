@@ -23,21 +23,25 @@
             <form string="Payslip">
                 <header>
                     <!-- Status-based action buttons -->
-                    <button name="generate_payslip" type="object" string="Generate Payslip" class="btn-primary" attrs="{'invisible': [('status', '!=', 'draft')]}" groups="base.group_system"/>
+                    <button name="generate_payslip" type="object" string="Generate Payslip" class="btn-primary" attrs="{'invisible': [('status', '!=', 'draft')]}" groups="account.group_account_manager,base.group_system"/>
 
-                    <button name="action_set_draft" type="object" string="Set to Draft" class="btn-secondary" attrs="{'invisible': [('status', '!=', 'generated')]}" groups="base.group_system"/>
+                    <button name="action_set_draft" type="object" string="Set to Draft" class="btn-secondary" attrs="{'invisible': [('status', '!=', 'generated')]}" groups="account.group_account_manager,base.group_system"/>
 
                     <button name="action_employee_confirm" type="object" string="Employee Confirm" class="btn-primary" attrs="{'invisible': [('status', '!=', 'generated')]}" groups="base.group_user"/>
 
-                    <button name="action_revert_generated" type="object" string="Back to Generated" class="btn-secondary" attrs="{'invisible': [('status', '!=', 'employee_confirm')]}" groups="base.group_system"/>
+                    <button name="action_revert_generated" type="object" string="Back to Generated" class="btn-secondary" attrs="{'invisible': [('status', '!=', 'employee_confirm')]}" groups="account.group_account_manager,base.group_system"/>
 
-                    <button name="action_transfer_payment" type="object" string="Transfer Payment" class="btn-primary" attrs="{'invisible': [('status', '!=', 'employee_confirm')]}" groups="base.group_system"/>
+                    <button name="action_transfer_payment" type="object" string="Transfer Payment" class="btn-primary" attrs="{'invisible': [('status', '!=', 'employee_confirm')]}" groups="account.group_account_manager,base.group_system"/>
 
                     <!-- Back to Transfer Payment button -->
-                    <button name="action_revert_transfer_payment" type="object" string="Back to Transfer Payment" class="btn-secondary" attrs="{'invisible': [('status', '!=', 'transfer_payment')]}" groups="base.group_system"/>
+                    <button name="action_revert_transfer_payment" type="object" string="Back to Transfer Payment" class="btn-secondary" attrs="{'invisible': [('status', '!=', 'transfer_payment')]}" groups="account.group_account_manager,base.group_system"/>
                     <!-- Mark as Done button -->
-
-                    <button name="action_done" type="object" string="Mark as Done" class="btn-success" attrs="{'invisible': [('status', '!=', 'transfer_payment')]}" groups="account.group_account_manager"/>
+                    <button name="action_done"
+                            type="object"
+                            string="Mark as Done"
+                            class="btn-success"
+                            attrs="{'invisible': [('status', '!=', 'transfer_payment')]}"
+                            groups="account.group_account_manager,base.group_system"/>
 
                     <!-- Status bar -->
                     <field name="status" widget="statusbar" readonly="1"/>
