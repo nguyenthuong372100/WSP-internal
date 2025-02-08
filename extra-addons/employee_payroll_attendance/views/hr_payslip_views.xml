@@ -72,15 +72,15 @@
                         <field name="currency_rate_fallback" string="Fallback USD to VND Rate" help="This rate is used for salary conversion if the live rate is unavailable."/>
                     </group>
                     <group string="Allowances and Bonuses">
-                        <field name="insurance"/>
-                        <field name="meal_allowance"/>
-                        <field name="kpi_bonus"/>
-                        <field name="other_bonus"/>
-
                         <field name="insurance_vnd"/>
                         <field name="meal_allowance_vnd"/>
                         <field name="kpi_bonus_vnd"/>
                         <field name="other_bonus_vnd"/>
+
+                        <field name="insurance"/>
+                        <field name="meal_allowance"/>
+                        <field name="kpi_bonus"/>
+                        <field name="other_bonus"/>
                     </group>
                     <group string="Summary">
                         <field name="total_working_days" readonly="1"/>

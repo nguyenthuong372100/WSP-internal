@@ -83,49 +83,6 @@ class HrPayslip(models.Model):
     kpi_bonus_vnd = fields.Float(string="KPI Bonus (VND)", default=0.0)
     other_bonus_vnd = fields.Float(string="Other Bonus (VND)", default=0.0)
 
-    @api.onchange(
-        "insurance",
-        "meal_allowance",
-        "kpi_bonus",
-        "other_bonus",
-        "insurance_vnd",
-        "meal_allowance_vnd",
-        "kpi_bonus_vnd",
-        "other_bonus_vnd",
-        "currency_rate_fallback",
-    )
-    def _onchange_bonus_vnd(self):
-        """
-        Convert between USD and VND based on the currency_rate_fallback.
-        If USD fields are updated -> update VND fields.
-        If VND fields are updated -> update USD fields.
-        """
-        if not self.currency_rate_fallback or self.currency_rate_fallback == 0:
-            _logger.warning(
-                "Currency Rate is missing or invalid. Cannot convert between USD and VND."
-            )
-            return
-
-        # Convert USD to VND
-        self.insurance_vnd = self.insurance * self.currency_rate_fallback
-        self.meal_allowance_vnd = self.meal_allowance * self.currency_rate_fallback
-        self.kpi_bonus_vnd = self.kpi_bonus * self.currency_rate_fallback
-        self.other_bonus_vnd = self.other_bonus * self.currency_rate_fallback
-
-        # Convert VND to USD
-        self.insurance = self.insurance_vnd / self.currency_rate_fallback
-        self.meal_allowance = self.meal_allowance_vnd / self.currency_rate_fallback
-        self.kpi_bonus = self.kpi_bonus_vnd / self.currency_rate_fallback
-        self.other_bonus = self.other_bonus_vnd / self.currency_rate_fallback
-
-        _logger.info(
-            f"Converted Allowances & Bonuses: USD -> VND and VND -> USD using rate {self.currency_rate_fallback}"
-        )
-
-        # Cập nhật tổng lương nếu cần
-        self._update_hourly_rates()
-        self._recalculate_total_salary()
-
     # New fields for additional information
     total_working_days = fields.Integer(
         string="Total Working Days", compute="_compute_additional_fields"
@@ -360,6 +317,49 @@ class HrPayslip(models.Model):
                 f"Total salary: {total_salary} (Probation: {probation_salary}, Normal: {normal_salary})"
             )
 
+    @api.onchange(
+        "insurance",
+        "meal_allowance",
+        "kpi_bonus",
+        "other_bonus",
+        "insurance_vnd",
+        "meal_allowance_vnd",
+        "kpi_bonus_vnd",
+        "other_bonus_vnd",
+        "currency_rate_fallback",
+    )
+    def _onchange_bonus_vnd(self):
+        """
+        Convert between USD and VND based on the currency_rate_fallback.
+        If USD fields are updated -> update VND fields.
+        If VND fields are updated -> update USD fields.
+        """
+        if not self.currency_rate_fallback or self.currency_rate_fallback == 0:
+            _logger.warning(
+                "Currency Rate is missing or invalid. Cannot convert between USD and VND."
+            )
+            return
+
+        # # Convert USD to VND
+        # self.insurance_vnd = self.insurance * self.currency_rate_fallback
+        # self.meal_allowance_vnd = self.meal_allowance * self.currency_rate_fallback
+        # self.kpi_bonus_vnd = self.kpi_bonus * self.currency_rate_fallback
+        # self.other_bonus_vnd = self.other_bonus * self.currency_rate_fallback
+
+        # Convert VND to USD
+        self.insurance = self.insurance_vnd / self.currency_rate_fallback
+        self.meal_allowance = self.meal_allowance_vnd / self.currency_rate_fallback
+        self.kpi_bonus = self.kpi_bonus_vnd / self.currency_rate_fallback
+        self.other_bonus = self.other_bonus_vnd / self.currency_rate_fallback
+
+        _logger.info(
+            f"Converted Allowances & Bonuses: USD -> VND and VND -> USD using rate {self.currency_rate_fallback}"
+        )
+
+        # Cập nhật tổng lương nếu cần
+        self._update_hourly_rates()
+        self._recalculate_total_salary()
+
     @api.onchange("monthly_wage_vnd")
     def _onchange_monthly_wage_vnd(self):
         """
@@ -593,10 +593,10 @@ class HrPayslip(models.Model):
                     "total_working_hours": payslip.total_working_hours,
                     "approved_working_hours": payslip.approved_working_hours,
                     "total_salary": payslip.total_salary,
-                    "insurance": payslip.insurance,
-                    "meal_allowance": payslip.meal_allowance,
-                    "kpi_bonus": payslip.kpi_bonus,
-                    "other_bonus": payslip.other_bonus,
+                    "insurance_vnd": payslip.insurance_vnd,
+                    "meal_allowance_vnd": payslip.meal_allowance_vnd,
+                    "kpi_bonus_vnd": payslip.kpi_bonus_vnd,
+                    "other_bonus_vnd": payslip.other_bonus_vnd,
                     "attendance_ids": attendance_data,
                     "status": "generated",
                     "converted_salary_vnd": payslip.converted_salary_vnd,

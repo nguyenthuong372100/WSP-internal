@@ -579,8 +579,12 @@ class HrPayslipDuplicateWizard(models.TransientModel):
 
             # Kích hoạt cơ chế tự động cập nhật Attendance mới
             new_payslip._auto_update_attendance_records()
-
+            new_payslip._recalculate_total_salary()
+            new_payslip._update_hourly_rates()
+            new_payslip._onchange_bonus_vnd()
+            new_payslip._compute_converted_salary_vnd()
         # return {"type": "ir.actions.client", "tag": "reload"}
+
         return {
             "effect": {
                 "fadeout": "slow",
