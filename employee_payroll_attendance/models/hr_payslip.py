@@ -106,6 +106,7 @@ class HrPayslip(models.Model):
                 )
                 for attendance in new_attendances
             ]
+
     def _sync_attendance_records(self):
         """
         Sync attendance records with payslip without creating duplicates.
@@ -398,8 +399,6 @@ _logger = logging.getLogger(__name__)
 class HrAttendance(models.Model):
     _inherit = "hr.attendance"
 
-
-            
     def toggle_approval(self):
         """Toggle approval status for attendance."""
         for record in self:
@@ -474,8 +473,6 @@ class HrAttendance(models.Model):
         return result
 
 
-
-
 class HrPayslipDuplicateWizard(models.TransientModel):
     _name = "hr.payslip.duplicate.wizard"
     _description = "Wizard for duplicating payslip"
@@ -518,14 +515,67 @@ class HrPayslipDuplicateWizard(models.TransientModel):
                     )
                 )
 
-            # Sao chép Payslip với giá trị mới
-            new_payslip = payslip.copy(
-                {
+            # Xác định giá trị sao chép tùy theo trạng thái include_saturdays
+            if payslip.include_saturdays:
+                # Giữ nguyên monthly_wage_vnd, tính lại wage
+                copy_values = {
                     "date_from": new_start_date,
                     "date_to": new_end_date,
-                    "currency_rate_fallback": self.currency_rate_fallback,  # Cập nhật giá trị mới
+                    "currency_rate_fallback": self.currency_rate_fallback,
+                    "status": "draft",
+                    "monthly_wage_vnd": payslip.monthly_wage_vnd,  # Giữ nguyên VND
+                    "meal_allowance_vnd": 0,
+                    "kpi_bonus_vnd": 0,
+                    "other_bonus_vnd": 0,
                 }
-            )
+
+            elif payslip.is_hourly_vnd:
+                # Giữ nguyên hourlyy (vnd)
+                copy_values = {
+                    "date_from": new_start_date,
+                    "date_to": new_end_date,
+                    "currency_rate_fallback": self.currency_rate_fallback,
+                    "status": "draft",
+                    "hourly_rate_vnd": payslip.hourly_rate_vnd,
+                    "meal_allowance_vnd": 0,
+                    "kpi_bonus_vnd": 0,
+                    "other_bonus_vnd": 0,
+                }
+            elif payslip.is_hourly_usd:
+                # Giữ nguyên wage (USD), tính lại monthly_wage_vnd
+                copy_values = {
+                    "date_from": new_start_date,
+                    "date_to": new_end_date,
+                    "currency_rate_fallback": self.currency_rate_fallback,
+                    "status": "draft",
+                    "hourly_rate": payslip.hourly_rate,  # Giữ nguyên USD
+                    "meal_allowance_vnd": 0,
+                    "kpi_bonus_vnd": 0,
+                    "other_bonus_vnd": 0,
+                }
+            else:
+                # Giữ nguyên wage (USD), tính lại monthly_wage_vnd
+                copy_values = {
+                    "date_from": new_start_date,
+                    "date_to": new_end_date,
+                    "currency_rate_fallback": self.currency_rate_fallback,
+                    "status": "draft",
+                    "wage": payslip.wage,  # Giữ nguyên USD
+                    "meal_allowance_vnd": 0,
+                    "kpi_bonus_vnd": 0,
+                    "other_bonus_vnd": 0,
+                }
+
+            # Sao chép phiếu lương
+            new_payslip = payslip.copy(copy_values)
+
+            # new_payslip._onchange_hourly_rate_vnd()
+            # new_payslip._onchange_wage()
+            # new_payslip._auto_update_attendance_records()
+            # new_payslip._recalculate_total_salary()
+            # new_payslip._update_hourly_rates()
+            # new_payslip._onchange_bonus_vnd()
+            # new_payslip._compute_converted_salary_vnd()
 
             # Xóa danh sách chấm công cũ (nếu có)
             if new_payslip.attendance_line_ids:
@@ -562,12 +612,12 @@ class HrPayslipDuplicateWizard(models.TransientModel):
             new_payslip._update_hourly_rates()
             new_payslip._onchange_bonus_vnd()
             new_payslip._compute_converted_salary_vnd()
-        # return {"type": "ir.actions.client", "tag": "reload"}
 
         return {
             "effect": {
                 "fadeout": "slow",
-                "message": "Payslip(s) duplicated successfully!",
+                "message": "Payslip(s) duplicated successfully! 🎈",
                 "type": "rainbow_man",
+                "class": "o_balloon_effect",  # Hiệu ứng bóng bay
             }
         }

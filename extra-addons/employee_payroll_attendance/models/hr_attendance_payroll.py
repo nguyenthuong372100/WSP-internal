@@ -51,6 +51,9 @@ class HrPayslip(models.Model):
         help="Fallback rate for currency conversion if live rate is unavailable.",
     )
     include_saturdays = fields.Boolean(string="Include 2 Saturdays?", default=False)
+    is_hourly_usd = fields.Boolean(string="", default=False)
+    is_hourly_vnd = fields.Boolean(string="", default=False)
+
     status = fields.Selection(
         [
             ("draft", "Draft"),
@@ -114,6 +117,23 @@ class HrPayslip(models.Model):
         string="Salary (Probation)", compute="_compute_total_salary", store=True
     )
     monthly_wage_vnd = fields.Float(string="Monthly Wage (VND)")
+
+    @api.onchange("is_hourly_vnd", "is_hourly_usd")
+    def _onchange_is_hourly(self):
+        """Bật is_vnd nếu is_hourly = True"""
+        if self.is_hourly_vnd or self.is_hourly_usd:
+            self.include_saturdays = False
+        if self.is_hourly_vnd:
+            self.is_hourly_usd = False
+        elif self.is_hourly_usd:
+            self.is_hourly_vnd = False
+
+    @api.onchange("include_saturdays")
+    def _onchange_include_saturdays(self):
+        """Bật is_hourly nếu include_saturdays = False"""
+        if self.include_saturdays:
+            self.is_hourly_vnd = False
+            self.is_hourly_usd = False
 
     @api.model
     def search(self, args, offset=0, limit=None, order=None, count=False):
@@ -383,6 +403,7 @@ class HrPayslip(models.Model):
         """
         Update Monthly Wage (VND) and hourly rates based on Monthly Wage (USD) and fallback rate, then recalculate total salary.
         """
+
         if self.wage and self.currency_rate_fallback:
             self.monthly_wage_vnd = self.wage * self.currency_rate_fallback
             _logger.info(
