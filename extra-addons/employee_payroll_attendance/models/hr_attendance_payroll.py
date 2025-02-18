@@ -31,6 +31,7 @@ class HrPayslip(models.Model):
     wage = fields.Float(
         string="Monthly Wage (USD)", help="Base monthly wage for the employee."
     )
+    monthly_wage_vnd = fields.Float(string="Monthly Wage (VND)")
     hourly_rate = fields.Float(
         string="Hourly Rate (USD)", help="Hourly wage for the employee."
     )
@@ -128,17 +129,20 @@ class HrPayslip(models.Model):
     probation_salary = fields.Float(
         string="Salary (Probation)", compute="_compute_total_salary", store=True
     )
-    monthly_wage_vnd = fields.Float(string="Monthly Wage (VND)")
 
-    @api.onchange("is_hourly_vnd", "is_hourly_usd")
-    def _onchange_is_hourly(self):
+    @api.onchange("is_hourly_usd")
+    def _onchange_is_hourly_usd(self):
         """Bật is_vnd nếu is_hourly = True"""
-        if self.is_hourly_vnd or self.is_hourly_usd:
+        if self.is_hourly_usd:
             self.include_saturdays = False
-        if self.is_hourly_vnd:
-            self.is_hourly_usd = False
-        elif self.is_hourly_usd:
             self.is_hourly_vnd = False
+
+    @api.onchange("is_hourly_vnd")
+    def _onchange_is_hourly_vnd(self):
+        """Bật is_hourly nếu include_saturdays = False"""
+        if self.is_hourly_vnd:
+            self.include_saturdays = False
+            self.is_hourly_usd = False
 
     @api.onchange("include_saturdays")
     def _onchange_include_saturdays(self):

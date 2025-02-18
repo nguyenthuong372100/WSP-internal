@@ -30,7 +30,7 @@
         "views/hr_payslip_views_update.xml",
         "views/menu_reporting.xml",
         "views/custom_module_sale.xml",
-        "data/hr_rate_fallback_cron.xml",
+        "data/update_rate_fallback_auto.xml",
     ],
     "installable": True,
     "application": False,

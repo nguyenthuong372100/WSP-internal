@@ -15,28 +15,6 @@
     <!-- Define the Payslips submenu under Manage Payslip, restricted to administrators -->
     <menuitem id="menu_hr_payslip" name="Payslips" parent="menu_hr_manage_payslip_root" action="action_hr_payslip" groups="base.group_system"/>
 
-    <menuitem id="menu_hr_rate_fallback" name="Rate Fallback" parent="menu_hr_manage_payslip_root" action="action_hr_rate_fallback" groups="base.group_system" sequence="30"/>
-
-
-    <record id="action_hr_rate_fallback" model="ir.actions.act_window">
-        <field name="name">Rate Fallback</field>
-        <field name="res_model">hr.rate.usd</field>
-        <field name="view_mode">tree,form</field>
-    </record>
-
-    <!-- View danh sách tỷ giá -->
-    <record id="view_hr_rate_fallback_tree" model="ir.ui.view">
-        <field name="name">hr.rate.usd.tree</field>
-        <field name="model">hr.rate.usd</field>
-        <field name="arch" type="xml">
-            <tree string="Exchange Rates">
-                <field name="date"/>
-                <field name="rate_usd_vnd"/>
-                <field name="approved"/>
-            </tree>
-        </field>
-    </record>
-
     <!-- Define the form view for Payslip with status-based actions and new fields -->
     <record id="view_payslip_form" model="ir.ui.view">
         <field name="name">hr.payslip.form</field>

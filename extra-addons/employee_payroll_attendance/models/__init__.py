@@ -7,5 +7,3 @@ from . import hr_payslip
 from . import custom_invoice
 from . import custom_duration_timeoff
 from . import auto_generate_payslip
-
-from . import hr_rate_fallback

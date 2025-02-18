@@ -3,6 +3,11 @@ import logging
 from dateutil.relativedelta import relativedelta
 from odoo.exceptions import UserError
 from datetime import datetime, timedelta
+import requests
+import warnings
+
+# import pandas as pd
+import io
 
 _logger = logging.getLogger(__name__)
 

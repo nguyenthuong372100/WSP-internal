@@ -3,6 +3,11 @@ import logging
 from dateutil.relativedelta import relativedelta
 from odoo.exceptions import UserError
 from datetime import datetime, timedelta
+import requests
+import warnings
+import pandas as pd
+import io
+import base64
 
 _logger = logging.getLogger(__name__)
 
@@ -15,6 +20,82 @@ class HrPayslip(models.Model):
         "hr.payslip.attendance", "payslip_id", string="Attendance Records", copy=False
     )
     approved_by = fields.Many2one("res.users", string="Approved By", readonly=True)
+
+    @api.model
+    def fetch_usd_buy_transfer_rate(self):
+        """
+        Lấy tỷ giá 'Buy Transfer' của USD từ API Vietcombank và cập nhật vào currency_rate_fallback.
+        """
+        _logger.info(
+            "Fetching USD Buy Transfer rate from Vietcombank API..."
+        )  # Log start
+
+        base_url = "https://www.vietcombank.com.vn/api/exchangerates/exportexcel?date="
+        date = fields.Date.today().strftime("%Y-%m-%d")  # Ngày hiện tại
+        excel_url = f"{base_url}{date}"
+
+        headers = {"User-Agent": "Mozilla/5.0"}
+
+        try:
+            response = requests.get(excel_url, headers=headers, timeout=10)
+            if response.status_code != 200:
+                _logger.error(
+                    f"Failed to download Excel, status code: {response.status_code}"
+                )
+                return f"Failed to download Excel, status code: {response.status_code}"
+
+            _logger.info("Excel file downloaded successfully.")
+
+            # Giải mã base64 content
+            decoded_content = base64.b64decode(response.content)
+            excel_data = io.BytesIO(decoded_content)
+
+            # Đọc file Excel
+            df = pd.read_excel(excel_data, skiprows=2, engine="openpyxl", dtype=str)
+            df.columns = [
+                "Currency Code",
+                "Currency Name",
+                "Buy Cash",
+                "Buy Transfer",
+                "Sell",
+            ]
+            df = df.dropna(subset=["Currency Code"])
+
+            # Lấy tỷ giá Buy Transfer của USD
+            usd_row = df[
+                df["Currency Code"]
+                .astype(str)
+                .str.contains("USD", na=False, case=False)
+            ]
+            if not usd_row.empty:
+                buy_transfer_rate = float(
+                    usd_row.iloc[0]["Buy Transfer"].replace(",", "")
+                )
+                _logger.info(f"USD Buy Transfer rate fetched: {buy_transfer_rate}")
+
+                # Cập nhật vào tất cả payslip có USD rate
+                payslips = (
+                    self.env["hr.payslip"]
+                    .sudo()
+                    .search([("currency_rate_fallback", ">", 0)])
+                )
+                for payslip in payslips:
+                    payslip.sudo().write({"currency_rate_fallback": buy_transfer_rate})
+
+                _logger.info(
+                    f"Updated {len(payslips)} payslips with USD Buy Transfer rate: {buy_transfer_rate}"
+                )
+                return f"Updated {len(payslips)} payslips with USD Buy Transfer rate: {buy_transfer_rate}"
+            else:
+                _logger.warning("USD exchange rate not found.")
+                return "USD exchange rate not found."
+
+        except requests.exceptions.RequestException as e:
+            _logger.error(f"Error fetching exchange rate: {e}")
+            return f"Error fetching exchange rate: {e}"
+        except Exception as e:
+            _logger.error(f"Error processing Excel file: {e}")
+            return f"Error processing Excel file: {e}"
 
     def _compute_total_worked_hours(self):
         """

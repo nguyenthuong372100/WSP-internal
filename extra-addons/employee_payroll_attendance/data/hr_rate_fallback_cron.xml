@@ -1,7 +1,7 @@
 <odoo>
     <record id="cron_update_exchange_rate" model="ir.cron">
         <field name="name">Update Exchange Rate (USD to VND)</field>
-        <field name="model_id" ref="model_hr_rate_usd"/>
+        <field name="model_id" ref="model_hr_rate_fallback"/>
         <field name="state">code</field>
         <field name="code">model.update_exchange_rate()</field>
         <field name="interval_number">1</field>
