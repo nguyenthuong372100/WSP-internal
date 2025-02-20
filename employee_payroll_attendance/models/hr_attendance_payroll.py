@@ -2,6 +2,7 @@ from odoo import api, fields, models
 import logging
 from datetime import timedelta
 from odoo.exceptions import UserError, AccessError
+import requests
 
 try:
     from forex_python.converter import CurrencyRates
@@ -30,6 +31,7 @@ class HrPayslip(models.Model):
     wage = fields.Float(
         string="Monthly Wage (USD)", help="Base monthly wage for the employee."
     )
+    monthly_wage_vnd = fields.Float(string="Monthly Wage (VND)")
     hourly_rate = fields.Float(
         string="Hourly Rate (USD)", help="Hourly wage for the employee."
     )
@@ -51,6 +53,20 @@ class HrPayslip(models.Model):
         help="Fallback rate for currency conversion if live rate is unavailable.",
     )
     include_saturdays = fields.Boolean(string="Include 2 Saturdays?", default=False)
+    is_hourly_usd = fields.Boolean(string="is hourly usd", default=False)
+    is_hourly_vnd = fields.Boolean(string="is hourly vnd", default=False)
+
+    rate_lock_field = fields.Selection(
+        [
+            ("hourly_rate_vnd", "Hourly Rate (VND)"),
+            ("hourly_rate", "Hourly Rate (USD)"),
+            ("wage", "Monthly Wage (USD)"),
+            ("monthly_wage_vnd", "Monthly Wage (VND)"),
+        ],
+        string="Rate Lock Field",
+        help="Field to keep constant when currency rate changes. Other fields will be recalculated.",
+    )
+
     status = fields.Selection(
         [
             ("draft", "Draft"),
@@ -113,7 +129,27 @@ class HrPayslip(models.Model):
     probation_salary = fields.Float(
         string="Salary (Probation)", compute="_compute_total_salary", store=True
     )
-    monthly_wage_vnd = fields.Float(string="Monthly Wage (VND)")
+
+    @api.onchange("is_hourly_usd")
+    def _onchange_is_hourly_usd(self):
+        """Bật is_vnd nếu is_hourly = True"""
+        if self.is_hourly_usd:
+            self.include_saturdays = False
+            self.is_hourly_vnd = False
+
+    @api.onchange("is_hourly_vnd")
+    def _onchange_is_hourly_vnd(self):
+        """Bật is_hourly nếu include_saturdays = False"""
+        if self.is_hourly_vnd:
+            self.include_saturdays = False
+            self.is_hourly_usd = False
+
+    @api.onchange("include_saturdays")
+    def _onchange_include_saturdays(self):
+        """Bật is_hourly nếu include_saturdays = False"""
+        if self.include_saturdays:
+            self.is_hourly_vnd = False
+            self.is_hourly_usd = False
 
     @api.model
     def search(self, args, offset=0, limit=None, order=None, count=False):
@@ -164,6 +200,47 @@ class HrPayslip(models.Model):
             else:
                 payslip.attendance_ids = False
 
+    def _compute_salary_fields(self):
+        """Tính toán đồng bộ tất cả các trường lương (USD/VND, Giờ/Tháng) dựa trên rate_lock_field."""
+        if not self.currency_rate_fallback or self.currency_rate_fallback <= 0:
+            raise UserError("Currency rate fallback is missing or zero.")
+
+        # Tính toán dựa trên trường khóa
+        if self.rate_lock_field == "hourly_rate_vnd":
+            self.hourly_rate = self.hourly_rate_vnd / self.currency_rate_fallback
+            self.wage = self.hourly_rate * self.total_working_hours
+            self.monthly_wage_vnd = self.wage * self.currency_rate_fallback
+
+        elif self.rate_lock_field == "hourly_rate":
+            self.hourly_rate_vnd = self.hourly_rate * self.currency_rate_fallback
+            self.wage = self.hourly_rate * self.total_working_hours
+            self.monthly_wage_vnd = self.wage * self.currency_rate_fallback
+
+        elif self.rate_lock_field == "wage":
+            self.monthly_wage_vnd = self.wage * self.currency_rate_fallback
+            self.hourly_rate = self.wage / self.total_working_hours
+            self.hourly_rate_vnd = self.hourly_rate * self.currency_rate_fallback
+
+        elif self.rate_lock_field == "monthly_wage_vnd":
+            self.wage = self.monthly_wage_vnd / self.currency_rate_fallback
+            self.hourly_rate = self.wage / self.total_working_hours
+            self.hourly_rate_vnd = self.hourly_rate * self.currency_rate_fallback
+
+        # Tính tổng lương
+        self._recalculate_total_salary()
+
+    @api.onchange(
+        "hourly_rate_vnd",
+        "hourly_rate",
+        "wage",
+        "monthly_wage_vnd",
+        "currency_rate_fallback",
+        "total_working_hours",
+    )
+    def _onchange_salary_fields(self):
+        """Gọi hàm tổng hợp khi bất kỳ giá trị nào liên quan đến lương thay đổi."""
+        self._compute_salary_fields()
+
     @api.onchange("wage")
     def _onchange_wage(self):
         if self.wage and self.total_working_days:
@@ -198,6 +275,7 @@ class HrPayslip(models.Model):
     #     "probation_end_date",
     #     "probation_percentage",
     # )
+
     @api.depends(
         "probation_start_date",
         "probation_end_date",
@@ -340,12 +418,6 @@ class HrPayslip(models.Model):
             )
             return
 
-        # # Convert USD to VND
-        # self.insurance_vnd = self.insurance * self.currency_rate_fallback
-        # self.meal_allowance_vnd = self.meal_allowance * self.currency_rate_fallback
-        # self.kpi_bonus_vnd = self.kpi_bonus * self.currency_rate_fallback
-        # self.other_bonus_vnd = self.other_bonus * self.currency_rate_fallback
-
         # Convert VND to USD
         self.insurance = self.insurance_vnd / self.currency_rate_fallback
         self.meal_allowance = self.meal_allowance_vnd / self.currency_rate_fallback
@@ -383,6 +455,7 @@ class HrPayslip(models.Model):
         """
         Update Monthly Wage (VND) and hourly rates based on Monthly Wage (USD) and fallback rate, then recalculate total salary.
         """
+
         if self.wage and self.currency_rate_fallback:
             self.monthly_wage_vnd = self.wage * self.currency_rate_fallback
             _logger.info(
@@ -949,3 +1022,39 @@ class HrPayslipCombinedRecord(models.Model):
     approved = fields.Boolean(string="Approved")
     project = fields.Char(string="Project")
     task = fields.Char(string="Task")
+
+
+class HrRateFallback(models.Model):
+    _name = "hr.rate.fallback"
+    _description = "Rate Fallback for USD to VND"
+
+    date = fields.Date(string="Date", required=True, default=fields.Date.context_today)
+    rate_usd_vnd = fields.Float(string="USD to VND Rate", required=True, digits=(12, 4))
+    approved = fields.Boolean(string="Approved", default=False)
+
+    @api.model
+    def update_exchange_rate(self):
+        """Tự động lấy tỷ giá và tạo bản ghi mới"""
+        url = "https://api.exchangerate-api.com/v4/latest/USD"
+        response = requests.get(url)
+        if response.status_code == 200:
+            data = response.json()
+            vnd_rate = data["rates"].get("VND", 0)
+            if vnd_rate:
+                self.create({"rate_usd_vnd": vnd_rate, "date": fields.Date.today()})
+
+    def action_approve(self):
+        """Khi click vào Approve, tỷ giá sẽ áp dụng cho tất cả Payslips cùng tháng"""
+        for record in self:
+            month_start = record.date.replace(day=1)
+            month_end = month_start.replace(
+                month=month_start.month % 12 + 1, day=1
+            ) - fields.Date.timedelta(days=1)
+
+            payslips = self.env["hr.payslip"].search(
+                [("date_from", ">=", month_start), ("date_to", "<=", month_end)]
+            )
+            payslips.write({"rate_usd_vnd": record.rate_usd_vnd})
+
+            # Đánh dấu là đã duyệt
+            record.approved = True

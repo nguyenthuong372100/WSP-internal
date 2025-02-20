@@ -6,3 +6,4 @@ from . import account_analytic_line
 from . import hr_payslip
 from . import custom_invoice
 from . import custom_duration_timeoff
+from . import auto_generate_payslip

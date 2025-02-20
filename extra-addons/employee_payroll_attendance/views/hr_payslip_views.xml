@@ -47,8 +47,27 @@
                         <field name="employee_id"/>
                         <field name="date_from"/>
                         <field name="date_to"/>
-                        <field name="include_saturdays" widget="boolean_toggle" string="Include Saturdays"/>
+                        <span class="d-inline-flex align-items-center">
+                            <span class="me-2 text-nowrap">Include Saturdays ?</span>
+                            <field name="include_saturdays" widget="boolean_toggle" class="mx-2"/>
+
+                        </span>
+                        <br/>
+                        <!-- <field name="include_saturdays" widget="boolean_toggle" string="Include Saturdays"/> -->
+
+                        <span class="d-inline-flex align-items-center">
+                            <span class="me-2 text-nowrap">Monthly Rate (USD)</span>
+                            <field name="is_hourly_usd" widget="boolean_toggle" class="mx-2"/>
+                            <span class="ms-2 text-nowrap">Hourly Rate (USD)</span>
+                        </span>
+                        <br/>
+                        <span class="d-inline-flex align-items-center">
+                            <span class="me-2 text-nowrap">Monthly Rate (VND)</span>
+                            <field name="is_hourly_vnd" widget="boolean_toggle" class="mx-2"/>
+                            <span class="ms-2 text-nowrap">Hourly Rate (VND)</span>
+                        </span>
                     </group>
+
 
                     <group>
                         <field name="wage" placeholder="Monthly Wage (USD)"/>
