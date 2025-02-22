@@ -21,82 +21,6 @@ class HrPayslip(models.Model):
     )
     approved_by = fields.Many2one("res.users", string="Approved By", readonly=True)
 
-    @api.model
-    def fetch_usd_buy_transfer_rate(self):
-        """
-        Lấy tỷ giá 'Buy Transfer' của USD từ API Vietcombank và cập nhật vào currency_rate_fallback.
-        """
-        _logger.info(
-            "Fetching USD Buy Transfer rate from Vietcombank API..."
-        )  # Log start
-
-        base_url = "https://www.vietcombank.com.vn/api/exchangerates/exportexcel?date="
-        date = fields.Date.today().strftime("%Y-%m-%d")  # Ngày hiện tại
-        excel_url = f"{base_url}{date}"
-
-        headers = {"User-Agent": "Mozilla/5.0"}
-
-        try:
-            response = requests.get(excel_url, headers=headers, timeout=10)
-            if response.status_code != 200:
-                _logger.error(
-                    f"Failed to download Excel, status code: {response.status_code}"
-                )
-                return f"Failed to download Excel, status code: {response.status_code}"
-
-            _logger.info("Excel file downloaded successfully.")
-
-            # Giải mã base64 content
-            decoded_content = base64.b64decode(response.content)
-            excel_data = io.BytesIO(decoded_content)
-
-            # Đọc file Excel
-            df = pd.read_excel(excel_data, skiprows=2, engine="openpyxl", dtype=str)
-            df.columns = [
-                "Currency Code",
-                "Currency Name",
-                "Buy Cash",
-                "Buy Transfer",
-                "Sell",
-            ]
-            df = df.dropna(subset=["Currency Code"])
-
-            # Lấy tỷ giá Buy Transfer của USD
-            usd_row = df[
-                df["Currency Code"]
-                .astype(str)
-                .str.contains("USD", na=False, case=False)
-            ]
-            if not usd_row.empty:
-                buy_transfer_rate = float(
-                    usd_row.iloc[0]["Buy Transfer"].replace(",", "")
-                )
-                _logger.info(f"USD Buy Transfer rate fetched: {buy_transfer_rate}")
-
-                # Cập nhật vào tất cả payslip có USD rate
-                payslips = (
-                    self.env["hr.payslip"]
-                    .sudo()
-                    .search([("currency_rate_fallback", ">", 0)])
-                )
-                for payslip in payslips:
-                    payslip.sudo().write({"currency_rate_fallback": buy_transfer_rate})
-
-                _logger.info(
-                    f"Updated {len(payslips)} payslips with USD Buy Transfer rate: {buy_transfer_rate}"
-                )
-                return f"Updated {len(payslips)} payslips with USD Buy Transfer rate: {buy_transfer_rate}"
-            else:
-                _logger.warning("USD exchange rate not found.")
-                return "USD exchange rate not found."
-
-        except requests.exceptions.RequestException as e:
-            _logger.error(f"Error fetching exchange rate: {e}")
-            return f"Error fetching exchange rate: {e}"
-        except Exception as e:
-            _logger.error(f"Error processing Excel file: {e}")
-            return f"Error processing Excel file: {e}"
-
     def _compute_total_worked_hours(self):
         """
         Calculate total worked hours from approved attendance records.
@@ -327,6 +251,72 @@ class HrPayslip(models.Model):
         _logger.info(
             "Action Approve Attendance completed for Payslip IDs: %s", self.ids
         )
+
+    @api.model
+    def fetch_usd_buy_transfer_rate(self):
+        """
+        Lấy tỷ giá 'Buy Transfer' của USD từ API Vietcombank.
+        """
+        _logger.info("Fetching USD Buy Transfer rate from Vietcombank API...")
+
+        base_url = "https://www.vietcombank.com.vn/api/exchangerates/exportexcel?date="
+        date = fields.Date.today().strftime("%Y-%m-%d")
+        excel_url = f"{base_url}{date}"
+        headers = {"User-Agent": "Mozilla/5.0"}
+
+        try:
+            response = requests.get(excel_url, headers=headers, timeout=10)
+            _logger.info(f"API Response Status: {response.status_code}")
+
+            if response.status_code != 200:
+                _logger.error(
+                    f"Failed to download Excel, status code: {response.status_code}"
+                )
+                return 0.0
+
+            _logger.info("Excel file downloaded successfully.")
+
+            # Giải mã nội dung base64
+            try:
+                decoded_content = base64.b64decode(response.content)
+                excel_data = io.BytesIO(decoded_content)
+            except Exception as e:
+                _logger.error(f"Error decoding base64 content: {e}")
+                return 0.0
+
+            # Đọc file Excel
+            try:
+                df = pd.read_excel(excel_data, skiprows=2, engine="openpyxl", dtype=str)
+                df.columns = [
+                    "Currency Code",
+                    "Currency Name",
+                    "Buy Cash",
+                    "Buy Transfer",
+                    "Sell",
+                ]
+                df = df.dropna(subset=["Currency Code"])
+            except Exception as e:
+                _logger.error(f"Error reading Excel file: {e}")
+                return 0.0
+
+            # Lấy tỷ giá Buy Transfer của USD
+            usd_row = df[df["Currency Code"].str.contains("USD", na=False, case=False)]
+            if not usd_row.empty:
+                buy_transfer_rate = float(
+                    usd_row.iloc[0]["Buy Transfer"].replace(",", "")
+                )
+                _logger.info(f"USD Buy Transfer rate fetched: {buy_transfer_rate}")
+                return buy_transfer_rate
+            else:
+                _logger.warning("USD exchange rate not found.")
+                return 0.0
+
+        except requests.exceptions.RequestException as e:
+            _logger.error(f"Error fetching exchange rate: {e}")
+            return 0.0
+        except Exception as e:
+            _logger.error(f"Error processing API response: {e}")
+            return 0.0
 
 
 class HrPayslipAttendance(models.Model):
@@ -605,6 +595,7 @@ class HrPayslipDuplicateWizard(models.TransientModel):
                     "currency_rate_fallback": self.currency_rate_fallback,
                     "status": "draft",
                     "monthly_wage_vnd": payslip.monthly_wage_vnd,
+                    "rate_lock_field": "monthly_wage_vnd",
                     "meal_allowance_vnd": 0,
                     "kpi_bonus_vnd": 0,
                     "other_bonus_vnd": 0,
@@ -616,6 +607,7 @@ class HrPayslipDuplicateWizard(models.TransientModel):
                     "date_to": new_end_date,
                     "currency_rate_fallback": self.currency_rate_fallback,
                     "status": "draft",
+                    "rate_lock_field": "hourly_rate_vnd",
                     "hourly_rate_vnd": payslip.hourly_rate_vnd,
                     "meal_allowance_vnd": 0,
                     "kpi_bonus_vnd": 0,
@@ -628,6 +620,7 @@ class HrPayslipDuplicateWizard(models.TransientModel):
                     "date_to": new_end_date,
                     "currency_rate_fallback": self.currency_rate_fallback,
                     "status": "draft",
+                    "rate_lock_field": "hourly_rate",
                     "hourly_rate": payslip.hourly_rate,
                     "meal_allowance_vnd": 0,
                     "kpi_bonus_vnd": 0,
@@ -640,6 +633,7 @@ class HrPayslipDuplicateWizard(models.TransientModel):
                     "date_to": new_end_date,
                     "currency_rate_fallback": self.currency_rate_fallback,
                     "status": "draft",
+                    "rate_lock_field": "wage",
                     "wage": payslip.wage,
                     "meal_allowance_vnd": 0,
                     "kpi_bonus_vnd": 0,
@@ -683,3 +677,26 @@ class HrPayslipDuplicateWizard(models.TransientModel):
             new_payslip._onchange_salary_fields()
             new_payslip._onchange_bonus_vnd()
             # new_payslip._compute_converted_salary_vnd()
+
+
+class HrPayslipUpdateRateWizard(models.TransientModel):
+    _name = "hr.payslip.update.rate.wizard"
+    _description = "Update Rate Fallback Wizard"
+
+    currency_rate_fallback = fields.Float(string="USD Buy Transfer Rate", readonly=True)
+
+    @api.model
+    def default_get(self, fields):
+        res = super(HrPayslipUpdateRateWizard, self).default_get(fields)
+        # Lấy tỷ giá từ API
+        rate = self.env["hr.payslip"].fetch_usd_buy_transfer_rate()
+        res["currency_rate_fallback"] = rate
+        return res
+
+    def action_update_rate(self):
+        """Cập nhật tỷ giá vào tất cả các Payslip"""
+        payslips = self.env["hr.payslip"].search([("currency_rate_fallback", ">", 0)])
+        payslips.write({"currency_rate_fallback": self.currency_rate_fallback})
+        _logger.info(
+            f"Updated {len(payslips)} payslips with rate: {self.currency_rate_fallback}"
+        )
