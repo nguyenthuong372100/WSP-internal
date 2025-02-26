@@ -26,7 +26,7 @@
         <xpath expr="//div[contains(@class, 'clearfix mb8')]" position="attributes">
             <attribute name="style">
                     height: 138px !important;
-                    position: relative; /* Change from fixed to relative */
+                    position: relative; / Change from fixed to relative /
             </attribute>
         </xpath>
 
@@ -141,53 +141,14 @@
         <!-- Replace Untaxed Amount and Total -->
         <xpath expr="//div[@id='total']//table[@class='table table-sm table-borderless']" position="replace">
             <table class="table table-sm table-borderless" style="page-break-inside: avoid;">
-
-                <!-- Subtotal -->
                 <tr>
-                    <td class="text-start">
-                        <strong>Subtotal:</strong>
-                    </td>
-                    <td class="text-end">
-                        <span t-esc="o.subtotal" t-options="{'widget': 'monetary', 'display_currency': o.currency_id}"/>
-                    </td>
-                </tr>
-
-                <!-- Discount -->
-                <tr>
-                    <td class="text-start">
-                        <strong>Discount:</strong>
-                    </td>
-                    <td class="text-end">
-                        <span t-esc="o.discount or 0.0" t-options="{'widget': 'monetary', 'display_currency': o.currency_id}"/>
-                    </td>
-                </tr>
-                <!-- Subtotal Less Discount -->
-                <tr>
-                    <td class="text-start">
-                        <strong>Subtotal Less Discount:</strong>
-                    </td>
-                    <td class="text-end">
-                        <span t-esc="o.subtotal - (o.discount or 0.0)" t-options="{'widget': 'monetary', 'display_currency': o.currency_id}"/>
-                    </td>
-                </tr>
-
-                <!-- <tr>
                     <td class="text-start">
                         <strong>Tax Rate:</strong>
                     </td>
                     <td class="text-end">
-                        <span t-esc="o.tax_rate or '0.00'"/>
+                        <span t-esc="o.tax_rate or '0.00'" t-options="{'widget': 'monetary', 'display_currency': o.currency_id}" />
                     </td>
                 </tr>
-
-                <tr>
-                    <td class="text-start">
-                        <strong>Total Tax:</strong>
-                    </td>
-                    <td class="text-end">
-                        <span t-esc="o.amount_tax" t-options="{'widget': 'monetary', 'display_currency': o.currency_id}"/>
-                    </td>
-                </tr> -->
 
                 <!-- Bank Fee -->
                 <tr>
@@ -199,13 +160,22 @@
                     </td>
                 </tr>
 
+                <!-- Subtotal -->
+                <tr>
+                    <td class="text-start">
+                        <strong>Subtotal:</strong>
+                    </td>
+                    <td class="text-end">
+                        <span t-esc="o.subtotal" t-options="{'widget': 'monetary', 'display_currency': o.currency_id}"/>
+                    </td>
+                </tr>
                 <!-- Balance Due -->
                 <tr>
                     <td class="text-start">
                         <strong>Balance Due:</strong>
                     </td>
                     <td class="text-end">
-                        <span t-esc="o.subtotal - (o.discount or 0.0) + o.amount_tax + (o.bank_fee or 0.0)" t-options="{'widget': 'monetary', 'display_currency': o.currency_id}"/>
+                        <span t-esc="o.subtotal + o.tax_rate" t-options="{'widget': 'monetary', 'display_currency': o.currency_id}"/>
                     </td>
                 </tr>
             </table>
@@ -219,29 +189,9 @@
         <field name="inherit_id" ref="account.view_move_form"/>
         <field name="arch" type="xml">
             <xpath expr="//group[@class='oe_subtotal_footer oe_right']" position="before">
-                <group class="oe_right" style="margin-right: 50px;">
-                    <field name="discount" options="{'currency_field': 'currency_id'}" attrs="{'readonly': [('state', '!=', 'draft')]}" style="padding: 3px"/>
+                <group class="oe_right" style="margin-left:65px">
                     <field name="bank_fee" options="{'currency_field': 'currency_id'}" attrs="{'readonly': [('state', '!=', 'draft')]}"/>
-                    <field name="subtotal_less_discount" readonly="1" options="{'currency_field': 'currency_id'}"/>
                 </group>
-            </xpath>
-
-            <xpath expr="//field[@name='amount_residual']" position="replace">
-                <group class="oe_subtotal_footer oe_right" style="width: 100%;">
-                    <field name="custom_amount_residual" class="oe_subtotal_footer_separator" readonly="1" options="{'currency_field': 'currency_id'}"/>
-                </group>
-            </xpath>
-        </field>
-    </record>
-    <!-- Custom  Total in Currency Field -->
-    <record id="view_account_move_tree_inherit" model="ir.ui.view">
-        <field name="name">account.move.tree.inherit</field>
-        <field name="model">account.move</field>
-        <field name="inherit_id" ref="account.view_out_invoice_tree" />
-        <field name="arch" type="xml">
-            <!-- Replace field amount_total_in_currency_signed with custom_amount_residual -->
-            <xpath expr="//field[@name='amount_total_in_currency_signed']" position="replace">
-                <field name="custom_amount_residual" string="Total in Currency" />
             </xpath>
         </field>
     </record>
