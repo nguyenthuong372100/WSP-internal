@@ -303,56 +303,65 @@ class HrPayslipAttendance(models.Model):
 
     def toggle_approval(self):
         """
-        Toggle the approval status of the attendance record in the payslip.
-        When the record is approved in one payslip, it cannot be approved or unapproved in any other payslip.
+        Toggle the approval status of an attendance record in the current payslip.
+        The meal_allowance_vnd is updated only if `include_saturdays` is True.
+        The allowance is added/subtracted only if the total worked hours in a single day reach at least 8 hours.
         """
         for record in self:
-            # Check if the attendance has already been approved in another payslip
-            if not record.approved:
-                existing_approved_lines = self.env["hr.payslip.attendance"].search(
-                    [
-                        ("attendance_id", "=", record.attendance_id.id),
-                        ("approved", "=", True),
-                        ("payslip_id", "!=", record.payslip_id.id),
-                    ],
-                    limit=1,
-                )
-                if existing_approved_lines:
-                    raise UserError(
-                        "This attendance record has already been approved in payslip hr.payslip,%s and cannot be approved again."
-                        % existing_approved_lines.payslip_id.id
-                    )
+            payslip = record.payslip_id  # Get the current payslip
 
+            # If include_saturdays is False, do not modify meal_allowance_vnd
+            if not payslip.include_saturdays:
+                record.approved = not record.approved
+                record.approved_by = self.env.user.id if record.approved else False
+                record.last_approver_payslip_id = payslip if record.approved else False
+                return
+
+            attendance_date = (
+                record.attendance_id.check_in.date()
+            )  # Get the attendance date
+
+            # Get all attendance records for the same day
+            same_day_attendances = payslip.attendance_line_ids.filtered(
+                lambda a: a.attendance_id.check_in.date() == attendance_date
+            )
+
+            # Calculate total worked hours before toggling
+            previous_total_hours = sum(
+                att.worked_hours for att in same_day_attendances if att.approved
+            )
+
+            # Step 1: Unapprove (if currently approved)
             if record.approved:
-                # If the record is already approved but missing `last_approver_payslip_id`, assign the current payslip
-                if not record.last_approver_payslip_id:
-                    record.last_approver_payslip_id = record.payslip_id
-
-                # Check if the record does not belong to the current payslip
-                if record.last_approver_payslip_id != record.payslip_id:
-                    raise UserError(
-                        "Only payslip hr.payslip,%s has the authority to unapprove this record."
-                        % (
-                            record.last_approver_payslip_id.id
-                            if record.last_approver_payslip_id
-                            else "Unknown"
-                        )
-                    )
-
-                # Unapprove the record
                 record.approved = False
                 record.approved_by = False
                 record.last_approver_payslip_id = False
+
+                # Recalculate total worked hours after unapproving
+                new_total_hours = previous_total_hours - record.worked_hours
+
+                # Only subtract meal allowance if new total hours drop below 8h
+                if previous_total_hours >= 8 and new_total_hours < 8:
+                    payslip.meal_allowance_vnd -= 30000
+                    payslip.write({"meal_allowance_vnd": payslip.meal_allowance_vnd})
+                    payslip._onchange_bonus_vnd()
+            # Step 2: Approve (if not already approved)
             else:
-                # Approve the record
                 record.approved = True
-                record.last_approver_payslip_id = record.payslip_id
+                record.last_approver_payslip_id = payslip
                 record.approved_by = self.env.user.id
 
-            # Synchronize the status within the current payslip
-            self._sync_approval_status_within_payslip(record)
+                # Recalculate total worked hours after approving
+                new_total_hours = previous_total_hours + record.worked_hours
 
-            # Recompute the total worked hours for related payslips
+                # Only add meal allowance if new total hours reach at least 8h
+                if previous_total_hours < 8 and new_total_hours >= 8:
+                    payslip.meal_allowance_vnd += 30000
+                    payslip.write({"meal_allowance_vnd": payslip.meal_allowance_vnd})
+                    payslip._onchange_bonus_vnd()
+            # Update total worked hours in the payslip
+            payslip._compute_total_worked_hours()
+            self._sync_approval_status_within_payslip(record)
             self._recompute_related_payslips(record)
 
     def _sync_approval_status_within_payslip(self, record):
@@ -625,101 +634,3 @@ class HrPayslipDuplicateWizard(models.TransientModel):
             new_payslip._onchange_bonus_vnd()
             # new_payslip._compute_converted_salary_vnd()
 
-
-# class HrPayslipUpdateRateWizard(models.TransientModel):
-#     _name = "hr.payslip.update.rate.wizard"
-#     _description = "Update Rate Fallback Wizard"
-
-#     currency_rate_fallback = fields.Float(string="USD Buy Transfer Rate", readonly=True)
-
-#     @api.model
-#     def default_get(self, fields):
-#         res = super(HrPayslipUpdateRateWizard, self).default_get(fields)
-#         # Lấy tỷ giá từ API
-#         rate = self.env["hr.payslip"].fetch_usd_buy_transfer_rate()
-#         res["currency_rate_fallback"] = rate
-#         return res
-
-#     def action_update_rate(self):
-#         """Cập nhật tỷ giá vào tất cả các Payslip được chọn"""
-#         selected_payslips = self.env["hr.payslip"].browse(
-#             self._context.get("active_ids", [])
-#         )
-#         selected_payslips.sudo().write(
-#             {"currency_rate_fallback": self.currency_rate_fallback}
-#         )
-
-#         _logger.info(
-#             f"Updated {len(selected_payslips)} payslips with rate: {self.currency_rate_fallback}"
-#         )
-
-
-# class HrPayslip(models.Model):
-#     _inherit = "hr.payslip"
-
-#     @api.model
-#     def fetch_usd_buy_transfer_rate(self):
-#         """
-#         Lấy tỷ giá 'Buy Transfer' của USD từ Vietcombank.
-#         """
-#         _logger.info("Fetching USD Buy Transfer rate from Vietcombank API...")
-
-#         base_url = "https://www.vietcombank.com.vn/api/exchangerates/exportexcel?date="
-#         # date = fields.Date.today().strftime("%Y-%m-%d")
-#         date = "2025-02-17"
-#         excel_url = f"{base_url}{date}"
-#         headers = {"User-Agent": "Mozilla/5.0"}
-
-#         try:
-#             response = requests.get(excel_url, headers=headers, timeout=10)
-#             _logger.info(f"API Response Status: {response.status_code}")
-
-#             if response.status_code != 200:
-#                 _logger.error(
-#                     f"Failed to download Excel, status code: {response.status_code}"
-#                 )
-#                 return 0.0
-
-#             _logger.info("Excel file downloaded successfully.")
-
-#             # Giải mã nội dung base64
-#             try:
-#                 decoded_content = base64.b64decode(response.content)
-#                 excel_data = io.BytesIO(decoded_content)
-#             except Exception as e:
-#                 _logger.error(f"Error decoding base64 content: {e}")
-#                 return 0.0
-
-#             # Đọc file Excel
-#             try:
-#                 df = pd.read_excel(excel_data, skiprows=2, engine="openpyxl", dtype=str)
-#                 df.columns = [
-#                     "Currency Code",
-#                     "Currency Name",
-#                     "Buy Cash",
-#                     "Buy Transfer",
-#                     "Sell",
-#                 ]
-#                 df = df.dropna(subset=["Currency Code"])
-#             except Exception as e:
-#                 _logger.error(f"Error reading Excel file: {e}")
-#                 return 0.0
-
-#             # Lấy tỷ giá Buy Transfer của USD
-#             usd_row = df[df["Currency Code"].str.contains("USD", na=False, case=False)]
-#             if not usd_row.empty:
-#                 buy_transfer_rate = float(
-#                     usd_row.iloc[0]["Buy Transfer"].replace(",", "")
-#                 )
-#                 _logger.info(f"USD Buy Transfer rate fetched: {buy_transfer_rate}")
-#                 return buy_transfer_rate
-#             else:
-#                 _logger.warning("USD exchange rate not found.")
-#                 return 0.0
-
-#         except requests.exceptions.RequestException as e:
-#             _logger.error(f"Error fetching exchange rate: {e}")
-#             return 0.0
-#         except Exception as e:
-#             _logger.error(f"Error processing API response: {e}")
-#             return 0.0
