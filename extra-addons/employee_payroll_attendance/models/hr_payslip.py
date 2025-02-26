@@ -260,6 +260,7 @@ class HrPayslip(models.Model):
 
             # Recompute total worked hours after approval
             payslip._compute_total_worked_hours()
+            payslip.compute_meal_allowance()
             _logger.info("Recomputed total worked hours for Payslip ID: %s", payslip.id)
         _logger.info(
             "Action Approve Attendance completed for Payslip IDs: %s", self.ids
@@ -363,6 +364,50 @@ class HrPayslipAttendance(models.Model):
             payslip._compute_total_worked_hours()
             self._sync_approval_status_within_payslip(record)
             self._recompute_related_payslips(record)
+
+    def compute_meal_allowance(self):
+        """
+        Tính tiền ăn (meal_allowance_vnd) cho payslip dựa trên trạng thái approved của các bản ghi attendance.
+        Điều kiện:
+        - include_saturdays phải là True.
+        - Tổng số giờ làm trong ngày >= 8 giờ thì mới tính trợ cấp 30,000 VND.
+        """
+        for payslip in self:
+            # Nếu không tính thứ 7, giữ nguyên tiền ăn = 0
+            if not payslip.include_saturdays:
+                payslip.meal_allowance_vnd = 0
+                payslip.write({"meal_allowance_vnd": 0})
+                continue  # Bỏ qua các bước tiếp theo
+
+            total_meal_allowance = 0  # Biến lưu tổng tiền ăn
+
+            # Lọc các bản ghi attendance đã được approve
+            approved_attendances = payslip.attendance_line_ids.filtered(
+                lambda a: a.approved
+            )
+
+            # Nhóm theo ngày để tính tổng số giờ làm của mỗi ngày
+            attendance_by_date = {}
+            for record in approved_attendances:
+                attendance_date = record.attendance_id.check_in.date()
+                if attendance_date not in attendance_by_date:
+                    attendance_by_date[attendance_date] = 0
+                attendance_by_date[attendance_date] += record.worked_hours
+
+            # Tính tiền ăn: nếu tổng giờ làm >= 8h trong ngày => +30,000 VND
+            for date, total_hours in attendance_by_date.items():
+                if total_hours >= 8:
+                    total_meal_allowance += (
+                        30000  # Cộng thêm 30,000 VND cho mỗi ngày đủ điều kiện
+                    )
+
+            # Gán lại giá trị vào payslip
+            payslip.meal_allowance_vnd = total_meal_allowance
+            payslip.write({"meal_allowance_vnd": total_meal_allowance})
+
+            _logger.info(
+                f"Updated meal allowance for Payslip {payslip.id}: {total_meal_allowance} VND"
+            )
 
     def _sync_approval_status_within_payslip(self, record):
         """
@@ -633,4 +678,3 @@ class HrPayslipDuplicateWizard(models.TransientModel):
             new_payslip._onchange_salary_fields()
             new_payslip._onchange_bonus_vnd()
             # new_payslip._compute_converted_salary_vnd()
-
