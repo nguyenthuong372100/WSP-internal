@@ -13,7 +13,7 @@ class HrPayslipUpdateRateWizard(
     _name = "hr.payslip.update.rate.wizard"
     _description = "Update Rate Fallback Wizard"
 
-    currency_rate_fallback = fields.Float(string="USD Buy Transfer Rate")
+    currency_rate_fallback = fields.Float(string="USD Buy Cash Rate")
 
     def fetch_usd_exchange_rate(self):
         """Fetch USD exchange rate from Vietcombank XML API and return value"""
@@ -32,7 +32,7 @@ class HrPayslipUpdateRateWizard(
             root = ET.fromstring(response.content)
             for item in root.findall("Exrate"):
                 if item.get("CurrencyCode") == "USD":
-                    return float(item.get("Transfer").replace(",", ""))
+                    return float(item.get("Buy").replace(",", ""))
 
             _logger.warning("USD exchange rate not found in XML response.")
             return 0.0

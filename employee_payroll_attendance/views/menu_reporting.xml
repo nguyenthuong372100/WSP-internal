@@ -44,8 +44,19 @@
         <field name="sequence" eval="2"/>
         <field name="state">code</field>
         <field name="code">
-            records.write({'approved': True, 'approved_by': env.user.id})
+records.write({'approved': True, 'approved_by': env.user.id})
+env.cr.flush()  # Đảm bảo dữ liệu cập nhật ngay
+
+# Kiểm tra nếu có bản ghi được duyệt
+if records:
+    payslips = records.mapped("payslip_id")  # Lấy danh sách payslip bị ảnh hưởng
+    if payslips:
+        payslips.compute_meal_allowance()
+        env.cr.commit()  # Lưu thay đổi ngay lập tức
+    else:
+        raise UserError("Không có Payslip nào liên kết với bản ghi Attendance đã chọn!")
         </field>
     </record>
+
 
 </odoo>
