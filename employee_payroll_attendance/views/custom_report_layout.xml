@@ -146,7 +146,7 @@
                         <strong>Tax Rate:</strong>
                     </td>
                     <td class="text-end">
-                        <span t-esc="o.tax_rate or '0.00'" t-options="{'widget': 'monetary', 'display_currency': o.currency_id}" />
+                        <span t-esc="o.tax_rate or '0.00'" />
                     </td>
                 </tr>
 

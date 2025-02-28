@@ -1,6 +1,12 @@
 from odoo import models, fields, api
 
 
+class AccountMoveLine(models.Model):
+    _inherit = "account.move.line"
+
+    is_bank_fee = fields.Boolean(string="Bank Fee Line", default=False)
+
+
 class AccountMove(models.Model):
     _inherit = "account.move"
 
@@ -81,13 +87,14 @@ class AccountMove(models.Model):
                         "quantity": 1,
                         "price_unit": record.bank_fee,
                         "account_id": account_id,  # Đảm bảo tài khoản hợp lệ
-                        "credit": record.bank_fee,  # Tăng tổng tiền phải thu
+                        "credit": record.bank_fee,
                         "debit": 0.00,
-                        "partner_id": record.partner_id.id,  # Đối tác phải có
+                        "partner_id": record.partner_id.id,
                         "company_id": record.company_id.id,
                         "currency_id": record.currency_id.id,
                         "date": record.invoice_date,
                         "tax_ids": [(6, 0, [])],  # Không áp thuế
+                        "is_bank_fee": True,  # Đánh dấu dòng này là Bank Fee
                     }
                 )
         return records
@@ -97,7 +104,7 @@ class AccountMove(models.Model):
         for record in self:
             if "bank_fee" in vals and vals["bank_fee"] > 0:
                 existing_fee_line = record.invoice_line_ids.filtered(
-                    lambda l: l.name == "Bank Fee"
+                    lambda l: l.is_bank_fee
                 )
                 account_id = record.journal_id.default_account_id.id
                 if not account_id:
@@ -122,6 +129,7 @@ class AccountMove(models.Model):
                             "company_id": record.company_id.id,
                             "currency_id": record.currency_id.id,
                             "date": record.invoice_date,
+                            "is_bank_fee": True,  # Đánh dấu đây là dòng Bank Fee
                         }
                     )
         return res
