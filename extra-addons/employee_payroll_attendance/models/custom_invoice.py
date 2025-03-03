@@ -1,8 +1,23 @@
 from odoo import models, fields, api
 
 
+class AccountMoveLine(models.Model):
+    _inherit = "account.move.line"
+
+    is_bank_fee = fields.Boolean(string="Bank Fee Line", default=False)
+    is_discount = fields.Boolean(string="Discount Line", default=False)
+
+
 class AccountMove(models.Model):
     _inherit = "account.move"
+
+    discount = fields.Monetary(
+        string="Discount",
+        currency_field="currency_id",
+        default=0.0,
+        store=True,
+        copy=True,  # Make sure the value is copied when duplicating
+    )
 
     bank_fee = fields.Monetary(
         string="Bank Fee",
@@ -35,6 +50,16 @@ class AccountMove(models.Model):
         currency_field="currency_id",
     )
 
+    invoice_line_ids = fields.One2many(
+        "account.move.line",
+        "move_id",
+        domain=[
+            ("is_bank_fee", "=", False),
+            ("is_discount", "=", False),
+        ],  # Ẩn Bank Fee khỏi UI
+        string="Invoice Lines",
+    )
+
     # Tính Subtotal từ các dòng hóa đơn
     @api.depends("invoice_line_ids.price_subtotal")
     def _compute_subtotal(self):
@@ -63,65 +88,137 @@ class AccountMove(models.Model):
                 else 0.0
             )
 
+    @api.depends("amount_total", "bank_fee", "discount", "payment_state")
+    def _compute_amount_residual(self):
+        for move in self:
+            if self.env.context.get("prevent_write"):
+                continue  # 🚀 Tránh vòng lặp vô hạn
+
+            paid_amount = sum(move.payment_ids.mapped("amount"))
+            move.amount_residual = (
+                (move.amount_total - paid_amount) + move.bank_fee - move.discount
+            )
+
     @api.model_create_multi
     def create(self, vals_list):
         records = super(AccountMove, self).create(vals_list)
         for record in records:
-            if record.bank_fee and record.bank_fee > 0:
-                account_id = record.journal_id.default_account_id.id
-                if not account_id:
-                    raise ValueError(
-                        "Không tìm thấy tài khoản kế toán hợp lệ cho Bank Fee."
-                    )
+            account_id = record.journal_id.default_account_id.id
+            if not account_id:
+                raise ValueError(
+                    "Không tìm thấy tài khoản kế toán hợp lệ cho Bank Fee/Discount."
+                )
 
+            # 🚀 Tạo Bank Fee nếu có
+            if record.bank_fee > 0:
                 self.env["account.move.line"].create(
                     {
                         "move_id": record.id,
                         "name": "Bank Fee",
                         "quantity": 1,
                         "price_unit": record.bank_fee,
-                        "account_id": account_id,  # Đảm bảo tài khoản hợp lệ
-                        "credit": record.bank_fee,  # Tăng tổng tiền phải thu
+                        "account_id": account_id,
+                        "credit": record.bank_fee,
                         "debit": 0.00,
-                        "partner_id": record.partner_id.id,  # Đối tác phải có
+                        "partner_id": record.partner_id.id,
                         "company_id": record.company_id.id,
                         "currency_id": record.currency_id.id,
                         "date": record.invoice_date,
                         "tax_ids": [(6, 0, [])],  # Không áp thuế
+                        "is_bank_fee": True,
                     }
                 )
+
+            # 🚀 Tạo Discount nếu có
+            if record.discount > 0:
+                self.env["account.move.line"].create(
+                    {
+                        "move_id": record.id,
+                        "name": "Discount",
+                        "quantity": 1,
+                        "price_unit": -record.discount,  # Chiết khấu là giá trị âm
+                        "account_id": account_id,
+                        "credit": 0.00,
+                        "debit": record.discount,
+                        "partner_id": record.partner_id.id,
+                        "company_id": record.company_id.id,
+                        "currency_id": record.currency_id.id,
+                        "date": record.invoice_date,
+                        "tax_ids": [(6, 0, [])],  # Không áp thuế
+                        "is_discount": True,
+                    }
+                )
+
         return records
 
     def write(self, vals):
         res = super(AccountMove, self).write(vals)
         for record in self:
-            if "bank_fee" in vals and vals["bank_fee"] > 0:
-                existing_fee_line = record.invoice_line_ids.filtered(
-                    lambda l: l.name == "Bank Fee"
+            account_id = record.journal_id.default_account_id.id
+            if not account_id:
+                raise ValueError(
+                    "Không tìm thấy tài khoản kế toán hợp lệ cho Bank Fee/Discount."
                 )
-                account_id = record.journal_id.default_account_id.id
-                if not account_id:
-                    raise ValueError(
-                        "Không tìm thấy tài khoản kế toán hợp lệ cho Bank Fee."
-                    )
 
+            # 🚀 Cập nhật Bank Fee nếu có thay đổi
+            if "bank_fee" in vals:
+                existing_fee_line = record.line_ids.filtered(lambda l: l.is_bank_fee)
                 if existing_fee_line:
-                    existing_fee_line.write({"price_unit": vals["bank_fee"]})
-                else:
-                    self.env["account.move.line"].create(
-                        {
-                            "move_id": record.id,
-                            "name": "Bank Fee",
-                            "quantity": 1,
-                            "price_unit": vals["bank_fee"],
-                            "account_id": account_id,
-                            "credit": vals["bank_fee"],
-                            "debit": 0.00,
-                            "tax_ids": [(5, 0, 0)],  # Xóa thuế
-                            "partner_id": record.partner_id.id,
-                            "company_id": record.company_id.id,
-                            "currency_id": record.currency_id.id,
-                            "date": record.invoice_date,
-                        }
-                    )
+                    existing_fee_line.unlink()
+
+                self.env["account.move.line"].create(
+                    {
+                        "move_id": record.id,
+                        "name": "Bank Fee",
+                        "quantity": 1,
+                        "price_unit": vals["bank_fee"],
+                        "account_id": account_id,
+                        "credit": vals["bank_fee"],
+                        "debit": 0.00,
+                        "tax_ids": [(5, 0, 0)],  # Không áp thuế
+                        "partner_id": record.partner_id.id,
+                        "company_id": record.company_id.id,
+                        "currency_id": record.currency_id.id,
+                        "date": record.invoice_date,
+                        "is_bank_fee": True,
+                    }
+                )
+
+            # 🚀 Cập nhật Discount nếu có thay đổi
+            if "discount" in vals:
+                existing_discount_line = record.line_ids.filtered(
+                    lambda l: l.is_discount
+                )
+                if existing_discount_line:
+                    existing_discount_line.unlink()
+
+                self.env["account.move.line"].create(
+                    {
+                        "move_id": record.id,
+                        "name": "Discount",
+                        "quantity": 1,
+                        "price_unit": -vals["discount"],  # Chiết khấu là giá trị âm
+                        "account_id": account_id,
+                        "credit": 0.00,
+                        "debit": vals["discount"],
+                        "tax_ids": [(5, 0, 0)],  # Không áp thuế
+                        "partner_id": record.partner_id.id,
+                        "company_id": record.company_id.id,
+                        "currency_id": record.currency_id.id,
+                        "date": record.invoice_date,
+                        "is_discount": True,
+                    }
+                )
+
+            # 🚀 Cập nhật số dư nhưng tránh lặp vô hạn
+            record.with_context(prevent_write=True)._compute_amount_residual()
+
         return res
+
+    def action_view_invoice_lines(self):
+        action = super().action_view_invoice_lines()
+        if action.get("domain"):
+            action["domain"].append(("is_bank_fee", "=", False))
+        else:
+            action["domain"] = [("is_bank_fee", "=", False)]
+        return action
