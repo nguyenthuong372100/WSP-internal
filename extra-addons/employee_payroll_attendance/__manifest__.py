@@ -27,7 +27,7 @@
         "views/generate_salary_wizard_views.xml",
         "views/account_analytic_line_views.xml",
         "views/custom_report_layout.xml",
-        "views/hr_payslip_views_update.xml",
+        # "views/hr_payslip_views_update.xml",
         "views/menu_reporting.xml",
         "views/custom_module_sale.xml",
         # "data/update_rate_fallback_auto.xml",
