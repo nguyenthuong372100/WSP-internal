@@ -1,58 +1,116 @@
 import requests
-import xml.etree.ElementTree as ET
+import base64
+import io
+import pandas as pd
 import logging
 from odoo import models, fields, api
 from odoo.exceptions import UserError
+from datetime import datetime
 
 _logger = logging.getLogger(__name__)
 
 
-class HrPayslipUpdateRateWizard(
-    models.TransientModel
-):  # Phải là TransientModel để không lưu trữ dữ liệu vĩnh viễn
+class HrPayslipUpdateRateWizard(models.TransientModel):
     _name = "hr.payslip.update.rate.wizard"
     _description = "Update Rate Fallback Wizard"
 
     currency_rate_fallback = fields.Float(string="USD Buy Cash Rate")
+    chosen_date = fields.Date(string="Choose Date", default=fields.Date.context_today)
 
-    def fetch_usd_exchange_rate(self):
-        """Fetch USD exchange rate from Vietcombank XML API and return value"""
-        url = "https://portal.vietcombank.com.vn/UserControls/TVPortal.TyGia/pXML.aspx"
+    @api.model
+    def default_get(self, fields_list):
+        """Fetch the exchange rate when the wizard is opened"""
+        defaults = super().default_get(fields_list)
+        today = fields.Date.context_today(self)
+        defaults["currency_rate_fallback"] = self.fetch_usd_exchange_rate(
+            today.strftime("%Y-%m-%d")
+        )
+        return defaults
+
+    def fetch_usd_exchange_rate(self, date):
+        """Fetch USD exchange rate (Buy Cash) from Vietcombank API for a chosen date"""
+        base_url = (
+            f"https://www.vietcombank.com.vn/api/exchangerates/exportexcel?date={date}"
+        )
         headers = {"User-Agent": "Mozilla/5.0"}
 
         try:
-            response = requests.get(url, headers=headers, timeout=10)
+            _logger.info(f"Fetching exchange rate from URL: {base_url}")
+            response = requests.get(base_url, headers=headers, timeout=10)
+
             if response.status_code != 200:
                 _logger.error(
                     f"Failed to fetch exchange rate, status code: {response.status_code}"
                 )
                 return 0.0
 
-            # Parse XML response
-            root = ET.fromstring(response.content)
-            for item in root.findall("Exrate"):
-                if item.get("CurrencyCode") == "USD":
-                    return float(item.get("Buy").replace(",", ""))
+            response_json = response.json()
+            _logger.info(f"API Response JSON keys: {response_json.keys()}")
 
-            _logger.warning("USD exchange rate not found in XML response.")
-            return 0.0
+            base64_data = response_json.get("Data")
+            if not base64_data:
+                _logger.error("No 'Data' field found in API response.")
+                return 0.0
+
+            decoded_content = base64.b64decode(base64_data)
+
+            with open("/tmp/exchange_rate.xlsx", "wb") as f:
+                f.write(decoded_content)
+            _logger.info("Saved Excel file to /tmp/exchange_rate.xlsx")
+
+            excel_data = io.BytesIO(decoded_content)
+            df = pd.read_excel(excel_data, engine="openpyxl", dtype=str)
+
+            if df.shape[1] < 5:
+                _logger.error("Unexpected column structure in exchange rate file.")
+                return 0.0
+
+            df.columns = [
+                "Currency Code",
+                "Currency Name",
+                "Buy Cash",
+                "Buy Transfer",
+                "Sell",
+            ]
+            df = df.dropna(subset=["Currency Code"])
+
+            usd_row = df[df["Currency Code"].str.contains("USD", na=False, case=False)]
+            if usd_row.empty:
+                _logger.warning("USD exchange rate not found.")
+                return 0.0
+
+            rate_value = usd_row.iloc[0]["Buy Cash"]
+            _logger.info(f"Raw Buy Cash rate value: {rate_value}")
+
+            try:
+                cleaned_rate = float(str(rate_value).replace(",", ""))
+                _logger.info(f"Fetched USD exchange rate: {cleaned_rate}")
+                return cleaned_rate
+            except ValueError as e:
+                _logger.error(f"Error converting exchange rate: {e}")
+                return 0.0
 
         except Exception as e:
-            _logger.error(f"Error fetching exchange rate: {e}")
+            _logger.error(f"Error processing exchange rate data: {e}")
             return 0.0
 
-    def action_update_rate(self):
-        """Fetch latest exchange rate and update the wizard"""
-        new_rate = self.fetch_usd_exchange_rate()
+    def action_choose_date(self):
+        """Fetch exchange rate for the chosen date and update the wizard"""
+        if not self.chosen_date:
+            raise UserError("Please select a date to fetch the exchange rate.")
+
+        new_rate = self.fetch_usd_exchange_rate(self.chosen_date.strftime("%Y-%m-%d"))
 
         if new_rate <= 0:
-            raise UserError("Failed to fetch a valid exchange rate.")
+            raise UserError(
+                "Failed to fetch a valid exchange rate for the chosen date."
+            )
 
-        # Cập nhật giá trị vào wizard
         self.write({"currency_rate_fallback": new_rate})
-        _logger.info(f"Updated exchange rate in wizard: {new_rate}")
+        _logger.info(
+            f"Updated exchange rate in wizard for {self.chosen_date}: {new_rate}"
+        )
 
-        # Không đóng wizard
         return {
             "type": "ir.actions.act_window",
             "res_model": "hr.payslip.update.rate.wizard",
@@ -66,7 +124,6 @@ class HrPayslipUpdateRateWizard(
         """Lấy giá trị currency_rate_fallback từ wizard và áp dụng cho các payslip đã chọn"""
         self.ensure_one()
 
-        # Kiểm tra `active_ids` có dữ liệu không
         active_ids = self.env.context.get("active_ids", [])
         if not active_ids:
             raise UserError("No payslips selected to update.")
@@ -74,20 +131,16 @@ class HrPayslipUpdateRateWizard(
         if self.currency_rate_fallback <= 0:
             raise UserError("No valid exchange rate value found in wizard.")
 
-        # Lấy danh sách payslips dựa trên `active_ids`
         payslips = self.env["hr.payslip"].browse(active_ids)
-
         if not payslips:
             raise UserError("No Payslip records found.")
 
-        # Cập nhật `currency_rate_fallback` cho payslip
         payslips.sudo().write({"currency_rate_fallback": self.currency_rate_fallback})
 
         _logger.info(
             f"Applied exchange rate {self.currency_rate_fallback} to Payslips: {active_ids}"
         )
 
-        # Gọi các phương thức cần cập nhật lại dữ liệu
         payslips._recalculate_total_salary()
         payslips._auto_update_attendance_records()
         payslips._onchange_salary_fields()

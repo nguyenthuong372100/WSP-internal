@@ -88,16 +88,18 @@
         <field name="arch" type="xml">
             <form string="Update Rate Fallback">
                 <group>
-                    <field name="currency_rate_fallback"/>
+                    <field name="chosen_date" widget="date"/>
+                    <field name="currency_rate_fallback" readonly="1"/>
                 </group>
                 <footer>
-                    <button string="Update Rate" type="object" name="action_update_rate" class="btn-primary"/>
+                    <button string="Update Rate" type="object" name="action_choose_date" class="btn-primary"/>
                     <button string="Apply to Payslips" type="object" name="action_apply_to_payslips" class="btn-success"/>
                     <button string="Cancel" special="cancel" class="btn-secondary"/>
                 </footer>
             </form>
         </field>
     </record>
+
 
     <!-- Server Action to Open Update Rate Fallback Wizard -->
     <record id="action_update_rate_fallback" model="ir.actions.act_window">
