@@ -202,29 +202,43 @@ class HrPayslip(models.Model):
 
     def _compute_salary_fields(self):
         """Tính toán đồng bộ tất cả các trường lương (USD/VND, Giờ/Tháng) dựa trên rate_lock_field."""
-        if not self.currency_rate_fallback or self.currency_rate_fallback <= 0:
-            raise UserError("Currency rate fallback is missing or zero.")
+        for payslip in self:
+            if (
+                not payslip.currency_rate_fallback
+                or payslip.currency_rate_fallback <= 0
+            ):
+                raise UserError(
+                    _("Currency rate fallback is missing or zero for Payslip %s.")
+                    % payslip.id
+                )
+            # Tính toán dựa trên trường khóa
+            if payslip.rate_lock_field == "hourly_rate_vnd":
+                payslip.hourly_rate = (
+                    payslip.hourly_rate_vnd / payslip.currency_rate_fallback
+                )
+                payslip.wage = payslip.hourly_rate * payslip.total_working_hours
+                payslip.monthly_wage_vnd = payslip.wage * payslip.currency_rate_fallback
 
-        # Tính toán dựa trên trường khóa
-        if self.rate_lock_field == "hourly_rate_vnd":
-            self.hourly_rate = self.hourly_rate_vnd / self.currency_rate_fallback
-            self.wage = self.hourly_rate * self.total_working_hours
-            self.monthly_wage_vnd = self.wage * self.currency_rate_fallback
+            elif payslip.rate_lock_field == "hourly_rate":
+                payslip.hourly_rate_vnd = (
+                    payslip.hourly_rate * payslip.currency_rate_fallback
+                )
+                payslip.wage = payslip.hourly_rate * payslip.total_working_hours
+                payslip.monthly_wage_vnd = payslip.wage * payslip.currency_rate_fallback
 
-        elif self.rate_lock_field == "hourly_rate":
-            self.hourly_rate_vnd = self.hourly_rate * self.currency_rate_fallback
-            self.wage = self.hourly_rate * self.total_working_hours
-            self.monthly_wage_vnd = self.wage * self.currency_rate_fallback
+            elif payslip.rate_lock_field == "wage":
+                payslip.monthly_wage_vnd = payslip.wage * payslip.currency_rate_fallback
+                payslip.hourly_rate = payslip.wage / payslip.total_working_hours
+                payslip.hourly_rate_vnd = (
+                    payslip.hourly_rate * payslip.currency_rate_fallback
+                )
 
-        elif self.rate_lock_field == "wage":
-            self.monthly_wage_vnd = self.wage * self.currency_rate_fallback
-            self.hourly_rate = self.wage / self.total_working_hours
-            self.hourly_rate_vnd = self.hourly_rate * self.currency_rate_fallback
-
-        elif self.rate_lock_field == "monthly_wage_vnd":
-            self.wage = self.monthly_wage_vnd / self.currency_rate_fallback
-            self.hourly_rate = self.wage / self.total_working_hours
-            self.hourly_rate_vnd = self.hourly_rate * self.currency_rate_fallback
+            elif payslip.rate_lock_field == "monthly_wage_vnd":
+                payslip.wage = payslip.monthly_wage_vnd / payslip.currency_rate_fallback
+                payslip.hourly_rate = payslip.wage / payslip.total_working_hours
+                payslip.hourly_rate_vnd = (
+                    payslip.hourly_rate * payslip.currency_rate_fallback
+                )
 
         # Tính tổng lương
         self._recalculate_total_salary()
@@ -412,25 +426,33 @@ class HrPayslip(models.Model):
         If USD fields are updated -> update VND fields.
         If VND fields are updated -> update USD fields.
         """
-        if not self.currency_rate_fallback or self.currency_rate_fallback == 0:
-            _logger.warning(
-                "Currency Rate is missing or invalid. Cannot convert between USD and VND."
+        for payslip in self:
+            if (
+                not payslip.currency_rate_fallback
+                or payslip.currency_rate_fallback <= 0
+            ):
+                _logger.warning(
+                    f"Payslip {payslip.id}: Currency Rate is missing or invalid. Cannot convert between USD and VND."
+                )
+                continue  # Bỏ qua bản ghi này nếu không có tỷ giá hợp lệ
+
+            # Convert VND to USD
+            payslip.insurance = payslip.insurance_vnd / payslip.currency_rate_fallback
+            payslip.meal_allowance = (
+                payslip.meal_allowance_vnd / payslip.currency_rate_fallback
             )
-            return
+            payslip.kpi_bonus = payslip.kpi_bonus_vnd / payslip.currency_rate_fallback
+            payslip.other_bonus = (
+                payslip.other_bonus_vnd / payslip.currency_rate_fallback
+            )
 
-        # Convert VND to USD
-        self.insurance = self.insurance_vnd / self.currency_rate_fallback
-        self.meal_allowance = self.meal_allowance_vnd / self.currency_rate_fallback
-        self.kpi_bonus = self.kpi_bonus_vnd / self.currency_rate_fallback
-        self.other_bonus = self.other_bonus_vnd / self.currency_rate_fallback
+            _logger.info(
+                f"Payslip {payslip.id}: Converted Allowances & Bonuses using rate {payslip.currency_rate_fallback}"
+            )
 
-        _logger.info(
-            f"Converted Allowances & Bonuses: USD -> VND and VND -> USD using rate {self.currency_rate_fallback}"
-        )
-
-        # Cập nhật tổng lương nếu cần
-        self._update_hourly_rates()
-        self._recalculate_total_salary()
+            # Cập nhật tổng lương nếu cần
+            payslip._update_hourly_rates()
+            payslip._recalculate_total_salary()
 
     @api.onchange("monthly_wage_vnd")
     def _onchange_monthly_wage_vnd(self):

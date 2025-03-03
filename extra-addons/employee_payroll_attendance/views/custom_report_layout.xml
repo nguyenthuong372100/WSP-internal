@@ -143,6 +143,15 @@
             <table class="table table-sm table-borderless" style="page-break-inside: avoid;">
                 <tr>
                     <td class="text-start">
+                        <strong>Subtotal:</strong>
+                    </td>
+                    <td class="text-end">
+                        <span t-esc="o.subtotal" t-options="{'widget': 'monetary', 'display_currency': o.currency_id}"/>
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="text-start">
                         <strong>Tax Rate:</strong>
                     </td>
                     <td class="text-end">
@@ -160,37 +169,42 @@
                     </td>
                 </tr>
 
-                <!-- Subtotal -->
+                 <!-- Discount -->
                 <tr>
                     <td class="text-start">
-                        <strong>Subtotal:</strong>
+                        <strong>Discount:</strong>
                     </td>
                     <td class="text-end">
-                        <span t-esc="o.subtotal" t-options="{'widget': 'monetary', 'display_currency': o.currency_id}"/>
+                        <span t-esc="o.discount or 0.0" t-options="{'widget': 'monetary', 'display_currency': o.currency_id}"/>
                     </td>
                 </tr>
+
                 <!-- Balance Due -->
                 <tr>
                     <td class="text-start">
                         <strong>Balance Due:</strong>
                     </td>
                     <td class="text-end">
-                        <span t-esc="o.subtotal + o.tax_rate" t-options="{'widget': 'monetary', 'display_currency': o.currency_id}"/>
+                        <span t-esc="o.subtotal + o.tax_rate + o.bank_fee - o.discount" t-options="{'widget': 'monetary', 'display_currency': o.currency_id}"/>
                     </td>
                 </tr>
             </table>
         </xpath>
     </template>
-
-    <!-- Custom Amount Residual -->
     <record id="view_invoice_form_inherit" model="ir.ui.view">
         <field name="name">account.move.form.inherit</field>
         <field name="model">account.move</field>
         <field name="inherit_id" ref="account.view_move_form"/>
         <field name="arch" type="xml">
+            <!-- Ẩn Bank Fee khỏi danh sách invoice lines -->
+            <xpath expr="//field[@name='invoice_line_ids']" position="attributes">
+                <attribute name="domain">[('is_bank_fee', '=', False)]</attribute>
+            </xpath>
+            <!-- Vẫn hiển thị Bank Fee ở phần tổng tiền -->
             <xpath expr="//group[@class='oe_subtotal_footer oe_right']" position="before">
                 <group class="oe_right" style="margin-left:65px">
                     <field name="bank_fee" options="{'currency_field': 'currency_id'}" attrs="{'readonly': [('state', '!=', 'draft')]}"/>
+                    <field name="discount" options="{'currency_field': 'currency_id'}" attrs="{'readonly': [('state', '!=', 'draft')]}"/>
                 </group>
             </xpath>
         </field>
