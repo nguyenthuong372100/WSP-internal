@@ -141,7 +141,7 @@ class HrPayslipUpdateRateWizard(models.TransientModel):
             f"Applied exchange rate {self.currency_rate_fallback} to Payslips: {active_ids}"
         )
 
-        payslips._recalculate_total_salary()
+        # payslips._recalculate_total_salary()
         payslips._auto_update_attendance_records()
         payslips._onchange_salary_fields()
         payslips._onchange_bonus_vnd()
