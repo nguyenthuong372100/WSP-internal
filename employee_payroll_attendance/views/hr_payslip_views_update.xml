@@ -105,6 +105,6 @@
         <field name="view_mode">form</field>
         <field name="view_id" ref="employee_payroll_attendance.view_hr_payslip_update_rate_wizard"/>
         <field name="target">new</field>
-        <field name="context">{'active_model': 'hr.payslip'}</field>
+        <field name="context">{'active_ids': active_ids, 'active_model': 'hr.payslip'}</field>
     </record>
 </odoo>
