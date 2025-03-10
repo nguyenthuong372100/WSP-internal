@@ -1,4 +1,4 @@
-from odoo import models, fields, api
+from odoo import models, fields, api, SUPERUSER_ID
 import logging
 from dateutil.relativedelta import relativedelta
 from odoo.exceptions import UserError
@@ -75,29 +75,32 @@ class HrPayslip(models.Model):
                 ]
 
     def _auto_update_attendance_records(self):
-        """
-        Tự động cập nhật các Attendance Records mới vào Payslip nếu chúng nằm trong khoảng thời gian date_from và date_to.
-        """
         for payslip in self:
-            # Lấy tất cả Attendance Records thuộc khoảng thời gian của Payslip
-            attendances = self.env["hr.attendance"].search(
-                [
-                    ("employee_id", "=", payslip.employee_id.id),
-                    ("check_in", ">=", payslip.date_from),
-                    ("check_out", "<=", payslip.date_to),
-                ]
+            _logger.info(
+                f"Starting _auto_update_attendance_records for Payslip ID {payslip.id}"
             )
 
-            # Tìm các Attendance mới chưa được thêm vào Payslip
-            existing_attendance_ids = payslip.attendance_line_ids.mapped(
-                "attendance_id.id"
-            )
-            new_attendances = attendances.filtered(
-                lambda a: a.id not in existing_attendance_ids
+            attendances = (
+                self.env["hr.attendance"]
+                .with_user(SUPERUSER_ID)
+                .search(
+                    [
+                        ("employee_id", "=", payslip.employee_id.id),
+                        ("check_in", ">=", payslip.date_from),
+                        ("check_out", "<=", payslip.date_to),
+                    ]
+                )
             )
 
-            # Thêm các Attendance mới vào Payslip
-            payslip.attendance_line_ids = [
+            if attendances:
+                _logger.info(
+                    f"Attendances found for Payslip ID {payslip.id}: {attendances.ids}"
+                )
+            else:
+                _logger.info(f"No attendances found for Payslip ID {payslip.id}")
+
+            payslip.attendance_line_ids.unlink()
+            attendance_lines = [
                 (
                     0,
                     0,
@@ -109,8 +112,10 @@ class HrPayslip(models.Model):
                         "approved": False,
                     },
                 )
-                for attendance in new_attendances
+                for attendance in attendances
             ]
+
+            payslip.write({"attendance_line_ids": attendance_lines})
 
     def _sync_attendance_records(self):
         """
@@ -122,12 +127,16 @@ class HrPayslip(models.Model):
                 continue  # Skip if any required fields are missing
 
             # Get attendance records that match the employee and date range
-            attendances = self.env["hr.attendance"].search(
-                [
-                    ("employee_id", "=", payslip.employee_id.id),
-                    ("check_in", ">=", payslip.date_from),
-                    ("check_out", "<=", payslip.date_to),
-                ]
+            attendances = (
+                self.env["hr.attendance"]
+                .with_user(SUPERUSER_ID)
+                .search(
+                    [
+                        ("employee_id", "=", payslip.employee_id.id),
+                        ("check_in", ">=", payslip.date_from),
+                        ("check_out", "<=", payslip.date_to),
+                    ]
+                )
             )
 
             # Remove any records that are no longer in the date range
@@ -162,19 +171,6 @@ class HrPayslip(models.Model):
             self._sync_attendance_records()
         return res
 
-    # @api.model
-    # def create(self, vals):
-    #     record = super(HrPayslip, self).create(vals)
-    #     record._sync_attendance_records()
-
-    #     # Don't sync state browser from other payslips
-    #     for line in record.attendance_line_ids:
-    #         # By default, not approved when creating a new one
-    #         line.approved = False
-    #         line.last_approver_payslip_id = False
-    #         line.approved_by = False
-
-    #     return record
     @api.model
     def create(self, vals):
         record = super(HrPayslip, self).create(vals)
