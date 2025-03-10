@@ -2,6 +2,7 @@ from datetime import timedelta
 import logging
 from odoo import models, fields, api, SUPERUSER_ID
 from dateutil.relativedelta import relativedelta
+from odoo.exceptions import UserError
 
 _logger = logging.getLogger(__name__)
 
@@ -9,112 +10,107 @@ _logger = logging.getLogger(__name__)
 class HrAttendance(models.Model):
     _inherit = "hr.attendance"
 
-    @api.model_create_multi
-    def create(self, vals_list):
-        records = super().create(vals_list)
-        employees_to_process = set()
+    @api.model
+    def create(self, vals):
+        record = super().create(vals)
 
-        if not records:
-            return records
+        if not record:
+            return record
 
-        for record in records:
-            if not record.employee_id:
-                _logger.warning("Skipping attendance with missing employee_id")
-                continue
+        today = fields.Date.today()
+        first_day_current_month = today.replace(day=1)
+        last_day_current_month = (
+            first_day_current_month + relativedelta(months=1)
+        ) - timedelta(days=1)
 
-            employee = record.employee_id.sudo()
-            today = fields.Date.today()
+        employee = record.employee_id
 
-            # Xác định ngày đầu và cuối tháng hiện tại
-            first_day_current_month = today.replace(day=1)
-            last_day_current_month = (
-                first_day_current_month + timedelta(days=32)
-            ).replace(day=1) - timedelta(days=1)
-
-            # Tìm payslip hiện tại với quyền Superuser
-            existing_payslip = (
-                self.env["hr.payslip"]
-                .with_user(SUPERUSER_ID)
-                .search(
-                    [
-                        ("employee_id", "=", employee.id),
-                        ("date_from", "=", first_day_current_month),
-                        ("date_to", "=", last_day_current_month),
-                    ],
-                    limit=1,
-                )
+        existing_payslip = (
+            self.env["hr.payslip"]
+            .with_user(SUPERUSER_ID)
+            .search(
+                [
+                    ("employee_id", "=", employee.id),
+                    ("date_from", "=", first_day_current_month),
+                    ("date_to", "=", last_day_current_month),
+                ],
+                limit=1,
             )
+        )
 
-            if existing_payslip and existing_payslip.status != "done":
+        if existing_payslip:
+            if existing_payslip.status != "done":
+                existing_payslip._auto_update_attendance_records()
+                existing_payslip._onchange_salary_fields()
+                existing_payslip._onchange_bonus_vnd()
                 _logger.info(
-                    f"Payslip already exists for Employee ID {employee.id}, skipping."
+                    f"Attendances updated for existing payslip {existing_payslip.id} (Employee: {employee.name})"
                 )
-                continue
-
-            employees_to_process.add(employee.id)
-
-        # Xử lý tạo payslip hoặc duplicate payslip
-        for employee_id in employees_to_process:
-            employee = self.env["hr.employee"].sudo().browse(employee_id)
-
-            first_day_last_month = (
-                first_day_current_month - timedelta(days=1)
-            ).replace(day=1)
-            last_day_last_month = (first_day_last_month + timedelta(days=32)).replace(
-                day=1
-            ) - timedelta(days=1)
-
-            # Tìm payslip tháng trước với quyền Superuser
-            payslip_last = (
-                self.env["hr.payslip"]
-                .with_user(SUPERUSER_ID)
-                .search(
-                    [
-                        ("employee_id", "=", employee.id),
-                        ("date_from", "=", first_day_last_month),
-                        ("date_to", "=", last_day_last_month),
-                    ],
-                    limit=1,
-                )
-            )
-
-            if payslip_last:
-                _logger.info(f"Duplicating payslip for Employee ID {employee.id}")
-                try:
-                    # **Gọi trực tiếp phương thức duplicate với quyền Superuser**
-                    payslip_last.with_user(SUPERUSER_ID).duplicate_payslip(
-                        payslip_last.currency_rate_fallback
-                    )
-                except Exception as e:
-                    _logger.error(
-                        f"Error duplicating payslip for Employee ID {employee.id}: {str(e)}"
-                    )
             else:
                 _logger.info(
-                    f"No previous payslip found for Employee ID {employee.id}, creating new payslip."
+                    f"Payslip {existing_payslip.id} already finalized. No update applied."
                 )
-                try:
-                    new_payslip = (
-                        self.env["hr.payslip"]
-                        .with_user(SUPERUSER_ID)
-                        .create(
-                            {
-                                "employee_id": employee.id,
-                                "date_from": first_day_current_month,
-                                "date_to": last_day_current_month,
-                            }
-                        )
-                    )
-                    if new_payslip:
-                        _logger.info(
-                            f"Successfully created new payslip for Employee ID {employee.id}"
-                        )
-                except Exception as e:
-                    _logger.error(
-                        f"Failed to create payslip for Employee ID {employee.id}: {str(e)}"
-                    )
+            return record
 
-        return records
+        # Nếu chưa có payslip, thì thực hiện tạo mới từ tháng trước
+        payslip_last_month = (
+            self.env["hr.payslip"]
+            .with_user(SUPERUSER_ID)
+            .search(
+                [
+                    ("employee_id", "=", employee.id),
+                    (
+                        "date_from",
+                        "=",
+                        first_day_current_month - relativedelta(months=1),
+                    ),
+                    ("date_to", "=", first_day_current_month - timedelta(days=1)),
+                ],
+                limit=1,
+            )
+        )
+
+        if payslip_last_month:
+            try:
+                new_payslip = payslip_last_month.copy(
+                    {
+                        "date_from": first_day_current_month,
+                        "date_to": last_day_current_month,
+                        "currency_rate_fallback": payslip_last_month.currency_rate_fallback,
+                    }
+                )
+                new_payslip._auto_update_attendance_records()
+                new_payslip._onchange_salary_fields()
+                new_payslip._onchange_bonus_vnd()
+                _logger.info(
+                    f"Payslip duplicated successfully for Employee: {employee.name}"
+                )
+            except Exception as e:
+                _logger.error(
+                    f"Error duplicating payslip for Employee ID {employee.id}: {str(e)}"
+                )
+        else:
+            # Create brand new payslip if last month payslip not found
+            try:
+                new_payslip = self.env["hr.payslip"].create(
+                    {
+                        "employee_id": employee.id,
+                        "date_from": first_day_current_month,
+                        "date_to": last_day_current_month,
+                    }
+                )
+                new_payslip._auto_update_attendance_records()
+                new_payslip._onchange_salary_fields()
+                new_payslip._onchange_bonus_vnd()
+                _logger.info(
+                    f"New payslip created successfully for Employee: {employee.name}"
+                )
+            except Exception as e:
+                _logger.error(
+                    f"Error creating new payslip for Employee ID {employee.id}: {str(e)}"
+                )
+
+        return record
 
 
 class HrPayslip(models.Model):
