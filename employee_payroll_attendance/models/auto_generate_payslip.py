@@ -45,7 +45,7 @@ class HrAttendance(models.Model):
                 )
             )
 
-            if existing_payslip and existing_payslip.state != "done":
+            if existing_payslip and existing_payslip.status != "done":
                 _logger.info(
                     f"Payslip already exists for Employee ID {employee.id}, skipping."
                 )
